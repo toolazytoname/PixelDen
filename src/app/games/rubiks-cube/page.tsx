@@ -294,12 +294,15 @@ export default function RubiksCube() {
     }
 
     function onPointerMove(e: PointerEvent) {
-      updateNDC(e);
-      const dx = e.clientX - state.current.pointerDown.x;
-      const dy = e.clientY - state.current.pointerDown.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
+      // Only react to pointer events that originated on the canvas
+      if (e.target !== canvas) return;
 
-      if (dist > 8) {
+      const dxFromDown = e.clientX - state.current.pointerDown.x;
+      const dyFromDown = e.clientY - state.current.pointerDown.y;
+      const distFromDown = Math.sqrt(dxFromDown * dxFromDown + dyFromDown * dyFromDown);
+
+      if (distFromDown > 8) {
+        // Crossed threshold → enter dragging mode
         state.current.dragging = true;
       }
 
@@ -313,10 +316,12 @@ export default function RubiksCube() {
         state.current.rotY = Math.round(state.current.rotY * 1000) / 1000;
         state.current.lastPointer = { x: e.clientX, y: e.clientY };
         state.current.lastInteraction = Date.now();
+        canvas!.style.cursor = "grabbing";
         return;
       }
 
-      // Hover effect
+      // Not dragging yet — do hover raycast
+      updateNDC(e);
       raycaster.setFromCamera(ndc, camera);
       const hits = raycaster.intersectObjects(cubies);
       const prevHover = state.current.hoveredCubie;
@@ -334,11 +339,13 @@ export default function RubiksCube() {
         state.current.hoveredCubie = -1;
       }
 
-      canvas!.style.cursor = state.current.dragging ? "grabbing" : "grab";
+      canvas!.style.cursor = "grab";
     }
 
     function onPointerUp(e: PointerEvent) {
-      // Always reset dragging on pointer up
+      // Only handle events that originated on the canvas
+      if (e.target !== canvas) return;
+
       state.current.dragging = false;
 
       const dx = e.clientX - state.current.pointerDown.x;
@@ -362,12 +369,20 @@ export default function RubiksCube() {
           }
         }
       }
+
+      canvas!.style.cursor = "grab";
+    }
+
+    function onPointerLeave() {
+      // Pointer left the canvas — end dragging
+      state.current.dragging = false;
     }
 
     if (canvas) {
       canvas.addEventListener("pointerdown", onPointerDown);
-      window.addEventListener("pointermove", onPointerMove);
-      window.addEventListener("pointerup", onPointerUp);
+      canvas.addEventListener("pointermove", onPointerMove);
+      canvas.addEventListener("pointerup", onPointerUp);
+      canvas.addEventListener("pointerleave", onPointerLeave);
     }
 
     // ─── Resize ─────────────────────────────────────────────────
@@ -405,8 +420,9 @@ export default function RubiksCube() {
       cancelAnimationFrame(rafRef.current);
       if (canvas) {
         canvas.removeEventListener("pointerdown", onPointerDown);
-        window.removeEventListener("pointermove", onPointerMove);
-        window.removeEventListener("pointerup", onPointerUp);
+        canvas.removeEventListener("pointermove", onPointerMove);
+        canvas.removeEventListener("pointerup", onPointerUp);
+        canvas.removeEventListener("pointerleave", onPointerLeave);
       }
       window.removeEventListener("resize", resize);
       resetAllHighlights();
