@@ -70,6 +70,7 @@ export default function RubiksCube() {
     pointerDown: { x: 0, y: 0 },
     moveHistory: [] as { axis: string; layer: number; dir: number }[],
     hoveredCubie: -1,
+    lastInteraction: Date.now(),
   });
 
   const rafRef = useRef(0);
@@ -287,7 +288,7 @@ export default function RubiksCube() {
 
     // Pointer events
     function onPointerDown(e: PointerEvent) {
-      updateNDC(e);
+      state.current.lastPointer = { x: e.clientX, y: e.clientY };
       state.current.pointerDown = { x: e.clientX, y: e.clientY };
       state.current.dragging = false;
     }
@@ -305,9 +306,13 @@ export default function RubiksCube() {
       if (state.current.dragging) {
         const ddx = e.clientX - state.current.lastPointer.x;
         const ddy = e.clientY - state.current.lastPointer.y;
-        state.current.rotY += ddx * 0.008;
-        state.current.rotX += ddy * 0.008;
+        state.current.rotY += ddx * 0.005;
+        state.current.rotX += ddy * 0.005;
+        // Snap to avoid floating point drift
+        state.current.rotX = Math.round(state.current.rotX * 1000) / 1000;
+        state.current.rotY = Math.round(state.current.rotY * 1000) / 1000;
         state.current.lastPointer = { x: e.clientX, y: e.clientY };
+        state.current.lastInteraction = Date.now();
         return;
       }
 
@@ -316,7 +321,6 @@ export default function RubiksCube() {
       const hits = raycaster.intersectObjects(cubies);
       const prevHover = state.current.hoveredCubie;
       resetHighlight(prevHover);
-      canvas!.style.cursor = "grab";
 
       if (hits.length > 0) {
         const hit = hits[0].object as THREE.Mesh;
@@ -329,32 +333,33 @@ export default function RubiksCube() {
       } else {
         state.current.hoveredCubie = -1;
       }
+
+      canvas!.style.cursor = state.current.dragging ? "grabbing" : "grab";
     }
 
     function onPointerUp(e: PointerEvent) {
+      // Always reset dragging on pointer up
+      state.current.dragging = false;
+
       const dx = e.clientX - state.current.pointerDown.x;
       const dy = e.clientY - state.current.pointerDown.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      if (dist > 8 || state.current.dragging) {
-        state.current.dragging = true;
-        state.current.lastPointer = { x: e.clientX, y: e.clientY };
-        return;
-      }
-
-      // Click — select cubie
-      if (state.current.hoveredCubie >= 0) {
-        // Reset previous selection
-        if (selectedCubie >= 0 && selectedCubie !== state.current.hoveredCubie) {
-          resetHighlight(selectedCubie);
-        }
-        setSelectedCubie(state.current.hoveredCubie);
-        highlightCubie(state.current.hoveredCubie, 0xff5c2a, 0.6);
-      } else {
-        // Clicked empty space — deselect
-        if (selectedCubie >= 0) {
-          resetHighlight(selectedCubie);
-          setSelectedCubie(-1);
+      // Only handle click if it wasn't a drag
+      if (dist <= 8) {
+        // Click — select cubie
+        if (state.current.hoveredCubie >= 0) {
+          if (selectedCubie >= 0 && selectedCubie !== state.current.hoveredCubie) {
+            resetHighlight(selectedCubie);
+          }
+          setSelectedCubie(state.current.hoveredCubie);
+          highlightCubie(state.current.hoveredCubie, 0xff5c2a, 0.6);
+        } else {
+          // Clicked empty space — deselect
+          if (selectedCubie >= 0) {
+            resetHighlight(selectedCubie);
+            setSelectedCubie(-1);
+          }
         }
       }
     }
@@ -380,6 +385,14 @@ export default function RubiksCube() {
     // ─── Render loop ────────────────────────────────────────────
     function animate() {
       rafRef.current = requestAnimationFrame(animate);
+
+      // Idle auto-rotate after 3s of inactivity
+      const idle = Date.now() - state.current.lastInteraction;
+      if (idle > 3000 && !state.current.dragging && !state.current.isAnimating) {
+        state.current.rotY += 0.003;
+        state.current.rotY = Math.round(state.current.rotY * 1000) / 1000;
+      }
+
       if (group) {
         group.rotation.x = state.current.rotX;
         group.rotation.y = state.current.rotY;
@@ -514,7 +527,7 @@ export default function RubiksCube() {
       <div className="mb-8">
         <h1 className="page-title">3D 魔方</h1>
         <p className="page-subtitle">
-          拖拽空白处旋转视角 · 点选方块后点击下方按钮旋转层 · 键盘 R L U D F B 旋转，+Shift 反向
+          拖拽空白处旋转视角 · 点击下方按钮旋转层
         </p>
         <p className="text-xs text-foreground/30 font-mono">
           {scrambled ? "已打乱 · " : ""}
@@ -535,31 +548,43 @@ export default function RubiksCube() {
         <div className="w-full max-w-2xl">
           {/* Face rotation grid */}
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-4">
-            {faceGroups.map(({ label, moves }) => (
-              <div key={label} className="flex flex-col items-center gap-1">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/40 mb-1">
-                  {label}
-                </span>
-                <div className="flex gap-1.5">
-                  <button
-                    onClick={() => executeMove(moves[0])}
-                    disabled={isAnimating}
-                    className="ctrl-btn"
-                    title={moves[0]}
-                  >
-                    {ArrowCW}
-                  </button>
-                  <button
-                    onClick={() => executeMove(moves[1])}
-                    disabled={isAnimating}
-                    className="ctrl-btn"
-                    title={moves[1]}
-                  >
-                    {ArrowCCW}
-                  </button>
+            {faceGroups.map(({ face, label, moves }) => {
+              const kbd = face;
+              return (
+                <div key={face} className="flex flex-col items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/40">
+                    {label}
+                  </span>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => executeMove(moves[0])}
+                      disabled={isAnimating}
+                      className="ctrl-btn group relative"
+                      title={moves[0]}
+                    >
+                      {ArrowCW}
+                      <span className="kbd-hint">{kbd}</span>
+                    </button>
+                    <button
+                      onClick={() => executeMove(moves[1])}
+                      disabled={isAnimating}
+                      className="ctrl-btn group relative"
+                      title={moves[1]}
+                    >
+                      {ArrowCCW}
+                      <span className="kbd-hint kbd-hint-sm">{kbd}'</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
+          </div>
+
+          {/* Keyboard shortcut legend */}
+          <div className="text-center mb-2">
+            <span className="text-[11px] text-foreground/30">
+              键盘: <kbd className="kbd-hint inline">R</kbd> <kbd className="kbd-hint inline">L</kbd> <kbd className="kbd-hint inline">U</kbd> <kbd className="kbd-hint inline">D</kbd> <kbd className="kbd-hint inline">F</kbd> <kbd className="kbd-hint inline">B</kbd> 旋转 · <kbd className="kbd-hint inline">Shift</kbd>+键 反向
+            </span>
           </div>
 
           {/* Action buttons */}

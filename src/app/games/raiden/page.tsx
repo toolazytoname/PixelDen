@@ -887,7 +887,7 @@ export default function RaidenGame() {
 
         {/* Game canvas */}
         <div className="canvas-wrapper">
-          <div className="game-container">
+          <div className="game-container game-container-wide">
             <canvas
               ref={canvasRef}
               width={CANVAS_W}
