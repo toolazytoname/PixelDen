@@ -1,0 +1,62 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - img "Pixel Den logo" [ref=e5]
+        - generic [ref=e9]: PixelDen
+      - navigation [ref=e10]:
+        - link "首页" [ref=e11] [cursor=pointer]:
+          - /url: /
+        - link "射击" [ref=e12] [cursor=pointer]:
+          - /url: /games/raiden
+        - link "科学" [ref=e13] [cursor=pointer]:
+          - /url: /games/dna-helix
+        - link "益智" [ref=e14] [cursor=pointer]:
+          - /url: /games/rubiks-cube
+        - link "关于" [ref=e15] [cursor=pointer]:
+          - /url: /about
+      - textbox "搜索游戏…" [ref=e16]
+  - main [ref=e17]:
+    - generic [ref=e18]:
+      - generic [ref=e20]:
+        - generic [ref=e21]: 精选小游戏
+        - heading "Pixel Den" [level=1] [ref=e23]
+        - paragraph [ref=e24]: 一个个人小游戏实验室。有意思的想法，直接做成游戏。即开即玩，没有多余的门槛。
+      - generic [ref=e25]:
+        - heading "全部游戏" [level=2] [ref=e27]
+        - generic [ref=e29]:
+          - link "A 雷电 经典直向卷轴射击，驾驶战机横扫千军 射击 1P" [ref=e30] [cursor=pointer]:
+            - /url: /games/raiden
+            - generic [ref=e32]: A
+            - generic [ref=e33]:
+              - heading "雷电" [level=3] [ref=e34]
+              - paragraph [ref=e35]: 经典直向卷轴射击，驾驶战机横扫千军
+              - generic [ref=e36]:
+                - generic [ref=e37]: 射击
+                - generic [ref=e38]: 1P
+          - link "∞ DNA 双螺旋 交互式 3D DNA 双螺旋，点击碱基对查看细节 科学 1P" [ref=e39] [cursor=pointer]:
+            - /url: /games/dna-helix
+            - generic [ref=e41]: ∞
+            - generic [ref=e42]:
+              - heading "DNA 双螺旋" [level=3] [ref=e43]
+              - paragraph [ref=e44]: 交互式 3D DNA 双螺旋，点击碱基对查看细节
+              - generic [ref=e45]:
+                - generic [ref=e46]: 科学
+                - generic [ref=e47]: 1P
+          - link "3 3D 魔方 可交互 3D 魔方，单层旋转，一键复原 益智 1P" [ref=e48] [cursor=pointer]:
+            - /url: /games/rubiks-cube
+            - generic [ref=e50]: "3"
+            - generic [ref=e51]:
+              - heading "3D 魔方" [level=3] [ref=e52]
+              - paragraph [ref=e53]: 可交互 3D 魔方，单层旋转，一键复原
+              - generic [ref=e54]:
+                - generic [ref=e55]: 益智
+                - generic [ref=e56]: 1P
+  - contentinfo [ref=e57]:
+    - paragraph [ref=e59]:
+      - text: Pixel Den · 精选小游戏 ·
+      - link "关于" [ref=e60] [cursor=pointer]:
+        - /url: /about
+  - button "Open Next.js Dev Tools" [ref=e66] [cursor=pointer]:
+    - img [ref=e67]
+  - alert [ref=e70]
