@@ -290,21 +290,12 @@ export default function RubiksCube() {
     function onPointerDown(e: PointerEvent) {
       state.current.lastPointer = { x: e.clientX, y: e.clientY };
       state.current.pointerDown = { x: e.clientX, y: e.clientY };
-      state.current.dragging = false;
+      state.current.dragging = true;
     }
 
     function onPointerMove(e: PointerEvent) {
       // Only react to pointer events that originated on the canvas
       if (e.target !== canvas) return;
-
-      const dxFromDown = e.clientX - state.current.pointerDown.x;
-      const dyFromDown = e.clientY - state.current.pointerDown.y;
-      const distFromDown = Math.sqrt(dxFromDown * dxFromDown + dyFromDown * dyFromDown);
-
-      if (distFromDown > 8) {
-        // Crossed threshold → enter dragging mode
-        state.current.dragging = true;
-      }
 
       if (state.current.dragging) {
         const ddx = e.clientX - state.current.lastPointer.x;
@@ -320,7 +311,7 @@ export default function RubiksCube() {
         return;
       }
 
-      // Not dragging yet — do hover raycast
+      // Not dragging — do hover raycast
       updateNDC(e);
       raycaster.setFromCamera(ndc, camera);
       const hits = raycaster.intersectObjects(cubies);
@@ -374,7 +365,7 @@ export default function RubiksCube() {
     }
 
     function onPointerLeave() {
-      // Pointer left the canvas — end dragging
+      // Pointer left the canvas — stop dragging
       state.current.dragging = false;
     }
 
@@ -400,13 +391,6 @@ export default function RubiksCube() {
     // ─── Render loop ────────────────────────────────────────────
     function animate() {
       rafRef.current = requestAnimationFrame(animate);
-
-      // Idle auto-rotate after 3s of inactivity
-      const idle = Date.now() - state.current.lastInteraction;
-      if (idle > 3000 && !state.current.dragging && !state.current.isAnimating) {
-        state.current.rotY += 0.003;
-        state.current.rotY = Math.round(state.current.rotY * 1000) / 1000;
-      }
 
       if (group) {
         group.rotation.x = state.current.rotX;
