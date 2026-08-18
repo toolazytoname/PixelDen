@@ -1,4 +1,4 @@
-import GameCard from "@/components/GameCard";
+import GameIndex from "@/components/GameIndex";
 import { gamesByCategory } from "@/lib/catalog";
 
 export const metadata = {
@@ -10,16 +10,12 @@ export default function PuzzleGames() {
   const games = gamesByCategory("puzzle");
 
   return (
-    <>
-      <div className="mb-8">
-        <h1 className="page-title">益智游戏</h1>
-        <p className="page-subtitle">当前可玩的益智作品</p>
-      </div>
-      <div className="games-grid">
-        {games.map((game) => (
-          <GameCard key={game.id} game={game} />
-        ))}
-      </div>
-    </>
+    <div className="site-shell">
+      <header className="about-intro">
+        <h1 className="about-title">益智</h1>
+        <p className="about-lede">当前能玩的益智作品。</p>
+      </header>
+      <GameIndex ids={games.map((game) => game.id)} />
+    </div>
   );
 }

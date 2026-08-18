@@ -406,9 +406,9 @@ export default function DNAHelix() {
   };
 
   return (
-    <div>
+    <div className="site-shell">
       <Link href="/" className="page-back">
-        ← 返回首页
+        返回
       </Link>
 
       <div className="mb-8">

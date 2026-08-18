@@ -472,11 +472,11 @@ export default function RaidenGame() {
   };
 
   return (
-    <div>
+    <div className="site-shell">
       <div className="flex flex-col items-center gap-4">
         <div className="flex w-full max-w-[640px] items-baseline justify-between gap-4">
           <Link href="/" className="page-back" style={{ marginBottom: 0 }}>
-            ← 返回首页
+            返回
           </Link>
           <div className="text-right">
             <h1 className="page-title" style={{ marginBottom: 0 }}>

@@ -29,20 +29,14 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-background">
         <SiteHeader />
 
-        <main className="flex-1">
-          <div className="mx-auto max-w-[1200px] px-6 py-8 sm:px-8 lg:px-12">
-            {children}
-          </div>
-        </main>
+        <main className="flex-1">{children}</main>
 
         <footer className="site-footer">
           <div className="footer-inner">
-            <p className="footer-brand">
-              Pixel Den &middot; 精选小游戏 &middot;{" "}
-              <Link href="/about" style={{ color: "var(--text-muted)" }}>
-                关于
-              </Link>
-            </p>
+            <p className="footer-brand">Pixel Den</p>
+            <Link href="/about" className="footer-link">
+              关于
+            </Link>
           </div>
         </footer>
       </body>
