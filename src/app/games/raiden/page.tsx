@@ -185,14 +185,16 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
 
 function drawBullet(
   ctx: CanvasRenderingContext2D,
-  b: { x: number; y: number; radius: number; color: string },
+  b: { x: number; y: number; radius: number; color: string; friendly?: boolean; vy?: number },
 ) {
   ctx.save();
   ctx.fillStyle = b.color;
-  ctx.shadowColor = b.color;
-  ctx.shadowBlur = 6;
   ctx.beginPath();
   ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 0.35;
+  ctx.beginPath();
+  ctx.arc(b.x, b.y - (b.friendly ? 5 : -4), b.radius + 1.5, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
@@ -227,13 +229,26 @@ function drawPowerUp(ctx: CanvasRenderingContext2D, pu: PowerUp) {
   ctx.restore();
 }
 
-function drawBackdrop(ctx: CanvasRenderingContext2D, stars: { x: number; y: number; speed: number; size: number; brightness: number }[]) {
+function drawBackdrop(
+  ctx: CanvasRenderingContext2D,
+  stars: { x: number; y: number; speed: number; size: number; brightness: number; layer: number }[],
+  time: number,
+) {
   const sky = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
-  sky.addColorStop(0, "#0a0a12");
-  sky.addColorStop(0.72, "#101018");
-  sky.addColorStop(1, "#1a1210");
+  sky.addColorStop(0, "#07070d");
+  sky.addColorStop(0.55, "#101018");
+  sky.addColorStop(1, "#1c1411");
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  ctx.fillStyle = "rgba(255, 92, 42, 0.05)";
+  ctx.beginPath();
+  ctx.ellipse(CANVAS_W * 0.2, (time * 0.12) % (CANVAS_H + 160) - 80, 90, 40, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(56, 189, 248, 0.04)";
+  ctx.beginPath();
+  ctx.ellipse(CANVAS_W * 0.78, (time * 0.07 + 200) % (CANVAS_H + 180) - 90, 70, 28, 0, 0, Math.PI * 2);
+  ctx.fill();
 
   stars.forEach((s) => {
     s.y += s.speed;
@@ -245,8 +260,8 @@ function drawBackdrop(ctx: CanvasRenderingContext2D, stars: { x: number; y: numb
     ctx.fillRect(s.x, s.y, s.size, s.size);
   });
 
-  ctx.fillStyle = "rgba(255, 92, 42, 0.06)";
-  ctx.fillRect(0, CANVAS_H - 90, CANVAS_W, 90);
+  ctx.fillStyle = "rgba(255, 92, 42, 0.07)";
+  ctx.fillRect(0, CANVAS_H - 110, CANVAS_W, 110);
 }
 
 function fullscreenElement() {
@@ -284,7 +299,7 @@ export default function RaidenGame() {
   const worldRef = useRef<World>(createWorld());
   const keysRef = useRef<Set<string>>(new Set());
   const starsRef = useRef<
-    { x: number; y: number; speed: number; size: number; brightness: number }[]
+    { x: number; y: number; speed: number; size: number; brightness: number; layer: number }[]
   >([]);
   const touchRef = useRef<{ x: number; y: number; active: boolean }>({
     x: 0,
@@ -294,13 +309,15 @@ export default function RaidenGame() {
 
   useEffect(() => {
     const stars = [];
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 120; i++) {
+      const layer = i < 50 ? 0 : i < 90 ? 1 : 2;
       stars.push({
         x: Math.random() * CANVAS_W,
         y: Math.random() * CANVAS_H,
-        speed: 0.5 + Math.random() * 2,
-        size: 0.5 + Math.random() * 1.5,
-        brightness: 0.3 + Math.random() * 0.7,
+        speed: layer === 0 ? 0.35 + Math.random() * 0.4 : layer === 1 ? 0.9 + Math.random() : 1.8 + Math.random() * 1.4,
+        size: layer === 0 ? 0.6 : layer === 1 ? 1.1 : 1.7,
+        brightness: layer === 0 ? 0.22 : layer === 1 ? 0.45 : 0.75,
+        layer,
       });
     }
     starsRef.current = stars;
@@ -328,7 +345,7 @@ export default function RaidenGame() {
       const world = worldRef.current;
 
       if (world.phase !== "playing") {
-        drawBackdrop(ctx, starsRef.current);
+        drawBackdrop(ctx, starsRef.current, world.time);
         return;
       }
 
@@ -337,7 +354,21 @@ export default function RaidenGame() {
       if (world.phase !== "playing") stopBed();
       syncHud(world);
 
-      drawBackdrop(ctx, starsRef.current);
+      ctx.save();
+      if (world.shake > 0) {
+        ctx.translate((Math.random() - 0.5) * world.shake, (Math.random() - 0.5) * world.shake);
+      }
+
+      drawBackdrop(ctx, starsRef.current, world.time);
+
+      world.trail.forEach((dot) => {
+        ctx.globalAlpha = (dot.life / 10) * 0.22;
+        ctx.fillStyle = "#eeeef0";
+        ctx.beginPath();
+        ctx.ellipse(dot.x, dot.y + 6, 5, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
 
       world.powerUps.forEach((pu) => drawPowerUp(ctx, pu));
       world.bullets.forEach((b) => drawBullet(ctx, b));
@@ -356,16 +387,45 @@ export default function RaidenGame() {
       });
       ctx.globalAlpha = 1;
 
-      ctx.fillStyle = "rgba(0,0,0,0.5)";
-      ctx.fillRect(0, 0, CANVAS_W, 36);
+      world.popups.forEach((popup) => {
+        ctx.globalAlpha = popup.life / popup.maxLife;
+        ctx.fillStyle = "#fbbf24";
+        ctx.font = "bold 11px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(popup.text, popup.x, popup.y);
+      });
+      ctx.globalAlpha = 1;
+
+      if (world.flash > 0) {
+        ctx.fillStyle = `rgba(255, 236, 210, ${world.flash / 18})`;
+        ctx.fillRect(-20, -20, CANVAS_W + 40, CANVAS_H + 40);
+      }
+
+      ctx.restore();
+
+      ctx.fillStyle = "rgba(10,10,15,0.55)";
+      ctx.fillRect(0, 0, CANVAS_W, 40);
 
       ctx.fillStyle = "#fff";
-      ctx.font = "bold 14px monospace";
+      ctx.font = "bold 13px monospace";
       ctx.textAlign = "left";
-      ctx.fillText(`SCORE ${world.score.toString().padStart(8, "0")}`, 10, 23);
+      ctx.fillText(world.score.toString().padStart(8, "0"), 52, 17);
+
+      ctx.fillStyle = "#8888a0";
+      ctx.font = "11px monospace";
+      ctx.fillText(`W${world.wave}  P${world.player.powerLevel}`, 52, 32);
+
+      if (world.combo > 1) {
+        ctx.fillStyle = "#ff5c2a";
+        ctx.font = "bold 13px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(`${world.combo} HIT`, CANVAS_W / 2, 18);
+      }
 
       ctx.textAlign = "right";
-      ctx.fillText(`W${world.wave}`, CANVAS_W - 10, 23);
+      ctx.fillStyle = "#fbbf24";
+      ctx.font = "11px monospace";
+      ctx.fillText("B".repeat(world.player.bombs) || "-", CANVAS_W - 10, 32);
 
       if (world.bannerTimer > 0 && world.banner) {
         const fade = Math.min(1, world.bannerTimer / 18);
@@ -377,9 +437,9 @@ export default function RaidenGame() {
         ctx.globalAlpha = 1;
       }
 
-      const hpBarW = 100;
+      const hpBarW = 88;
       const hpBarX = CANVAS_W - hpBarW - 10;
-      const hpBarY = 28;
+      const hpBarY = 10;
       ctx.fillStyle = "rgba(0,0,0,0.5)";
       ctx.fillRect(hpBarX, hpBarY, hpBarW, 4);
       const hpRatio = Math.max(0, world.player.hp / world.player.maxHp);

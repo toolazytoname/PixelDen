@@ -15,6 +15,7 @@ let ctx: AudioContext | null = null;
 let muted = false;
 let bedTimer = 0;
 let lastShotAt = 0;
+let bedStep = 0;
 
 function audio(): AudioContext | null {
   if (typeof window === "undefined") return null;
@@ -94,8 +95,9 @@ export function playSfx(kind: SfxKind): void {
       break;
     }
     case "explode":
-      noise(ac, 0.22, 0.16, 900);
-      tone(ac, "sawtooth", 180, 0.18, 0.05, 60);
+      noise(ac, 0.28, 0.18, 1100);
+      tone(ac, "sawtooth", 210, 0.2, 0.055, 55);
+      tone(ac, "triangle", 90, 0.16, 0.04, 40);
       break;
     case "hurt":
       tone(ac, "sawtooth", 220, 0.16, 0.08, 80);
@@ -133,13 +135,24 @@ export function playSfx(kind: SfxKind): void {
   }
 }
 
+const BED_BASS = [62, 62, 93, 62, 78, 62, 93, 117];
+const BED_LEAD = [0, 247, 0, 311, 0, 247, 196, 0];
+
 export function startBed(): void {
   if (muted || bedTimer) return;
+  bedStep = 0;
   const pulse = () => {
     if (muted) return;
     const ac = audio();
-    if (ac) tone(ac, "sine", 62, 0.18, 0.018);
-    bedTimer = window.setTimeout(pulse, 520);
+    if (ac) {
+      const bass = BED_BASS[bedStep % BED_BASS.length];
+      tone(ac, "sine", bass, 0.22, 0.03);
+      const lead = BED_LEAD[bedStep % BED_LEAD.length];
+      if (lead) tone(ac, "triangle", lead, 0.12, 0.012);
+      if (bedStep % 2 === 0) noise(ac, 0.04, 0.012, 2800);
+    }
+    bedStep += 1;
+    bedTimer = window.setTimeout(pulse, 168);
   };
   pulse();
 }

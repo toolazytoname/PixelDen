@@ -122,6 +122,20 @@ export interface Particle {
   size: number;
 }
 
+export interface ScorePopup {
+  x: number;
+  y: number;
+  text: string;
+  life: number;
+  maxLife: number;
+}
+
+export interface TrailDot {
+  x: number;
+  y: number;
+  life: number;
+}
+
 export interface PowerUp {
   x: number;
   y: number;
@@ -172,6 +186,13 @@ export interface World {
   waveControl: WaveControl;
   banner: string;
   bannerTimer: number;
+  combo: number;
+  comboTimer: number;
+  shake: number;
+  flash: number;
+  time: number;
+  popups: ScorePopup[];
+  trail: TrailDot[];
 }
 
 export interface TickInput {
@@ -222,6 +243,13 @@ export function createWorld(): World {
     waveControl: "auto",
     banner: "",
     bannerTimer: 0,
+    combo: 0,
+    comboTimer: 0,
+    shake: 0,
+    flash: 0,
+    time: 0,
+    popups: [],
+    trail: [],
   };
 }
 
@@ -237,6 +265,13 @@ export function startGame(world: World, craft: CraftId = "falcon"): void {
   world.enemySpawnTimer = 0;
   world.difficulty = 1;
   world.waveControl = "auto";
+  world.combo = 0;
+  world.comboTimer = 0;
+  world.shake = 0;
+  world.flash = 0;
+  world.time = 0;
+  world.popups = [];
+  world.trail = [];
   beginWave(world, 1);
 }
 
@@ -483,13 +518,16 @@ export function firePlayerBullet(world: World): void {
     color: craft.shot === "fan" ? "#fb923c" : craft.shot === "needle" ? "#7dd3fc" : "#38bdf8",
   };
 
+  const power = Math.min(5, Math.max(1, p.powerLevel + (p.hasSpread ? 1 : 0)));
+
   if (p.hasSpread || craft.shot === "fan") {
-    for (let i = -2; i <= 2; i++) {
+    const span = power >= 4 ? 3 : 2;
+    for (let i = -span; i <= span; i++) {
       world.bullets.push({
         ...baseBullet,
-        x: p.x + i * 8,
+        x: p.x + i * 7,
         vy: bulletSpeed,
-        vx: i * 1.5,
+        vx: i * 1.35,
       });
     }
     return;
@@ -497,11 +535,18 @@ export function firePlayerBullet(world: World): void {
 
   if (craft.shot === "needle") {
     world.bullets.push({ ...baseBullet, x: p.x, vy: bulletSpeed - 2, vx: 0 });
+    if (power >= 3) {
+      world.bullets.push({ ...baseBullet, x: p.x - 6, vy: bulletSpeed - 1, vx: -0.4 });
+      world.bullets.push({ ...baseBullet, x: p.x + 6, vy: bulletSpeed - 1, vx: 0.4 });
+    }
     return;
   }
 
   world.bullets.push({ ...baseBullet, x: p.x - 8, vy: bulletSpeed, vx: 0 });
   world.bullets.push({ ...baseBullet, x: p.x + 8, vy: bulletSpeed, vx: 0 });
+  if (power >= 3) {
+    world.bullets.push({ ...baseBullet, x: p.x, vy: bulletSpeed - 1, vx: 0, radius: 4 });
+  }
 }
 
 export function fireEnemyBullet(world: World, enemy: Enemy, angle?: number): void {
@@ -527,6 +572,7 @@ export function applyPickup(player: Player, type: PowerUp["type"]): void {
       break;
     case "speed":
       player.fireRate = Math.max(3, player.fireRate - 1);
+      player.powerLevel = Math.min(5, player.powerLevel + 1);
       break;
     case "shield":
       player.shield = Math.min(3, player.shield + 1);
@@ -541,6 +587,8 @@ export function applyBomb(world: World): boolean {
   const p = world.player;
   if (p.bombs <= 0) return false;
   p.bombs--;
+  world.shake = 16;
+  world.flash = 12;
 
   // Clear hostile fire. Keeping this inverted used to leave enemy shots on screen.
   world.bullets = world.bullets.filter((b) => b.friendly);
@@ -649,9 +697,21 @@ export function tickWorld(world: World, input: TickInput): SfxEvent[] {
   const random = input.random ?? Math.random;
   const now = input.now ?? Date.now();
   const p = world.player;
+  world.time += 1;
+  if (world.shake > 0) world.shake -= 0.7;
+  if (world.flash > 0) world.flash -= 1;
+  if (world.comboTimer > 0) {
+    world.comboTimer -= 1;
+    if (world.comboTimer <= 0) world.combo = 0;
+  }
 
   movePlayer(p, input);
   if (p.hurtTimer > 0) p.hurtTimer--;
+  world.trail.push({ x: p.x, y: p.y, life: 10 });
+  world.trail = world.trail.filter((dot) => {
+    dot.life -= 1;
+    return dot.life > 0;
+  });
 
   tickWave(world, random, events);
 
@@ -679,8 +739,22 @@ export function tickWorld(world: World, input: TickInput): SfxEvent[] {
 
     if (e.shootTimer <= 0 && e.y > 0 && e.y < CANVAS_H * 0.7) {
       if (e.type === "boss") {
-        for (let i = -3; i <= 3; i++) {
-          fireEnemyBullet(world, e, Math.PI / 2 + i * 0.18);
+        const ratio = e.hp / e.maxHp;
+        if (ratio < 0.34) {
+          for (let i = 0; i < 10; i++) {
+            fireEnemyBullet(world, e, i * 0.63 + e.age * 0.08);
+          }
+          e.shootInterval = 20;
+        } else if (ratio < 0.67) {
+          for (let i = -4; i <= 4; i++) {
+            fireEnemyBullet(world, e, Math.PI / 2 + i * 0.16);
+          }
+          fireEnemyBullet(world, e, Math.atan2(p.y - e.y, p.x - e.x));
+          e.shootInterval = 24;
+        } else {
+          for (let i = -3; i <= 3; i++) {
+            fireEnemyBullet(world, e, Math.PI / 2 + i * 0.18);
+          }
         }
       } else if (e.type === "fighter") {
         const angle = Math.atan2(p.y - e.y, p.x - e.x);
@@ -705,7 +779,18 @@ export function tickWorld(world: World, input: TickInput): SfxEvent[] {
         e.hp -= b.damage;
         spawnParticles(world, b.x, b.y, 3, b.color, 2);
         if (e.hp <= 0) {
-          world.score += e.score;
+          world.combo += 1;
+          world.comboTimer = 96;
+          const bonus = Math.floor(e.score * (1 + Math.min(world.combo, 9) * 0.12));
+          world.score += bonus;
+          world.popups.push({
+            x: e.x,
+            y: e.y,
+            text: `+${bonus}`,
+            life: 36,
+            maxLife: 36,
+          });
+          world.shake = Math.max(world.shake, e.type === "boss" ? 14 : 4);
 
           if (random() < 0.15) {
             const types: PowerUp["type"][] = ["spread", "speed", "shield", "bomb"];
@@ -782,6 +867,12 @@ export function tickWorld(world: World, input: TickInput): SfxEvent[] {
     pt.vy *= 0.96;
     pt.life--;
     return pt.life > 0;
+  });
+
+  world.popups = world.popups.filter((popup) => {
+    popup.y -= 0.6;
+    popup.life -= 1;
+    return popup.life > 0;
   });
 
   return events;

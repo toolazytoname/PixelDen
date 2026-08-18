@@ -227,6 +227,8 @@ describe("雷电 engine (shipped by /games/raiden)", () => {
     expect(world.bullets.some((b) => !b.friendly)).toBe(false);
     expect(world.enemies).toHaveLength(1);
     expect(world.enemies[0].hp).toBe(5);
+    expect(world.shake).toBeGreaterThan(0);
+    expect(world.flash).toBeGreaterThan(0);
 
     world.player.bombs = 0;
     expect(applyBomb(world)).toBe(false);
@@ -278,5 +280,28 @@ describe("雷电 engine (shipped by /games/raiden)", () => {
     }
     expect(world.wavePhase).toBe("active");
     expect(world.enemies.length).toBeGreaterThan(0);
+  });
+
+  test("kills build a combo and score popup", () => {
+    const world = playable();
+    world.player.fireTimer = 0;
+    world.enemies = [
+      makeEnemy({
+        x: world.player.x,
+        y: world.player.y - 24,
+        hp: 1,
+        maxHp: 1,
+        width: 40,
+        height: 40,
+        speed: 0,
+        shootTimer: 9999,
+        score: 100,
+      }),
+    ];
+    tickWorld(world, noSpawn);
+    tickWorld(world, noSpawn);
+    expect(world.combo).toBeGreaterThan(0);
+    expect(world.popups.length).toBeGreaterThan(0);
+    expect(world.score).toBeGreaterThanOrEqual(100);
   });
 });
