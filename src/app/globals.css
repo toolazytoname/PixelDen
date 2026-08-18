@@ -641,6 +641,21 @@ a {
   width: 100%;
 }
 
+.game-mute {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 5;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
 .game-expand {
   position: absolute;
   top: 10px;
@@ -749,6 +764,63 @@ a {
 
 .overlay-btn:active {
   transform: translateY(1px);
+}
+
+.hangar {
+  justify-content: flex-start;
+  padding: 18px 10px 12px;
+  gap: 10px;
+  overflow: auto;
+}
+
+.hangar .overlay-title {
+  font-size: 26px;
+  margin-bottom: 2px;
+}
+
+.hangar-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  width: 100%;
+  padding: 0 4px;
+}
+
+.hangar-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 7px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(18, 18, 26, 0.92);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hangar-card.is-on {
+  border-color: var(--accent);
+}
+
+.hangar-art {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+}
+
+.hangar-name {
+  padding: 6px 6px 0;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.hangar-line {
+  padding: 2px 6px 0;
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--text-muted);
 }
 
 .overlay-controls {

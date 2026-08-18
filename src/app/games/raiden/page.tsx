@@ -6,7 +6,9 @@ import {
   applyBomb,
   CANVAS_H,
   CANVAS_W,
+  CRAFTS,
   createWorld,
+  craftById,
   FEATURED_SUBTITLE,
   FEATURED_TITLE,
   pauseGame,
@@ -14,11 +16,19 @@ import {
   returnToMenu,
   startGame,
   tickWorld,
+  type CraftId,
   type Enemy,
   type Player,
   type PowerUp,
   type World,
 } from "@/lib/raiden";
+import {
+  playSfx,
+  setMuted,
+  startBed,
+  stopBed,
+  unlockAudio,
+} from "@/lib/raiden-audio";
 
 function drawPlayerShip(ctx: CanvasRenderingContext2D, p: Player) {
   ctx.save();
@@ -53,7 +63,9 @@ function drawPlayerShip(ctx: CanvasRenderingContext2D, p: Player) {
   ctx.closePath();
   ctx.fill();
 
-  ctx.fillStyle = "#e8ecf4";
+  const hull =
+    p.craft === "crow" ? "#f4d0c2" : p.craft === "kite" ? "#d7eef8" : "#e8ecf4";
+  ctx.fillStyle = hull;
   ctx.beginPath();
   ctx.moveTo(0, -24);
   ctx.lineTo(-9, 6);
@@ -265,7 +277,9 @@ export default function RaidenGame() {
   const [level, setLevel] = useState(1);
   const [hp, setHp] = useState(100);
   const [bombCount, setBombCount] = useState(3);
-  const maxHp = 100;
+  const [maxHp, setMaxHp] = useState(100);
+  const [craft, setCraft] = useState<CraftId>("falcon");
+  const [muted, setMutedUi] = useState(false);
 
   const worldRef = useRef<World>(createWorld());
   const keysRef = useRef<Set<string>>(new Set());
@@ -297,6 +311,7 @@ export default function RaidenGame() {
     setLevel(world.level);
     setHp(world.player.hp);
     setBombCount(world.player.bombs);
+    setMaxHp(world.player.maxHp);
     setGameState(world.phase);
   }, []);
 
@@ -317,7 +332,9 @@ export default function RaidenGame() {
         return;
       }
 
-      tickWorld(world, { keys: keysRef.current, touch: touchRef.current });
+      const events = tickWorld(world, { keys: keysRef.current, touch: touchRef.current });
+      events.forEach(playSfx);
+      if (world.phase !== "playing") stopBed();
       syncHud(world);
 
       drawBackdrop(ctx, starsRef.current);
@@ -380,8 +397,18 @@ export default function RaidenGame() {
     const world = worldRef.current;
     if (world.phase !== "playing") return;
     if (applyBomb(world)) {
+      playSfx("bomb");
       setBombCount(world.player.bombs);
     }
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    setMutedUi((prev) => {
+      const next = !prev;
+      setMuted(next);
+      if (!next && worldRef.current.phase === "playing") startBed();
+      return next;
+    });
   }, []);
 
   const toggleExpand = useCallback(() => {
@@ -411,12 +438,14 @@ export default function RaidenGame() {
       keysRef.current.add(e.key);
       if (e.key === " " || e.key === "Space") e.preventDefault();
       if (e.key === "b" || e.key === "B") handleBomb();
+      if (e.key === "m" || e.key === "M") toggleMute();
       if ((e.key === "f" || e.key === "F") && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         toggleExpand();
       }
       if (e.key === "Escape" && worldRef.current.phase === "playing" && !fullscreenElement()) {
         pauseGame(worldRef.current);
+        stopBed();
         setGameState("paused");
       }
     };
@@ -429,19 +458,30 @@ export default function RaidenGame() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [handleBomb, toggleExpand]);
+  }, [handleBomb, toggleExpand, toggleMute]);
 
   const handleStart = () => {
-    startGame(worldRef.current);
+    unlockAudio();
+    playSfx("start");
+    startGame(worldRef.current, craft);
+    startBed();
     syncHud(worldRef.current);
+  };
+
+  const handleSelect = (id: CraftId) => {
+    unlockAudio();
+    playSfx("select");
+    setCraft(id);
   };
 
   const handleResume = () => {
     resumeGame(worldRef.current);
+    startBed();
     setGameState("playing");
   };
 
   const handleMenu = () => {
+    stopBed();
     returnToMenu(worldRef.current);
     setGameState("menu");
   };
@@ -502,18 +542,32 @@ export default function RaidenGame() {
             />
 
             {gameState === "menu" && (
-              <div className="overlay-menu">
+              <div className="overlay-menu hangar">
                 <div className="text-center">
                   <h2 className="overlay-title">{FEATURED_TITLE}</h2>
-                  <p className="overlay-subtitle">一波接一波 · 白机对橙蜂</p>
-                  <button onClick={handleStart} className="overlay-btn">
-                    开始游戏
-                  </button>
+                  <p className="overlay-subtitle">选一架机，再出击</p>
                 </div>
+                <div className="hangar-grid">
+                  {CRAFTS.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`hangar-card${craft === item.id ? " is-on" : ""}`}
+                      onClick={() => handleSelect(item.id)}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={item.card} alt="" className="hangar-art" />
+                      <span className="hangar-name">{item.name}</span>
+                      <span className="hangar-line">{item.line}</span>
+                    </button>
+                  ))}
+                </div>
+                <button onClick={handleStart} className="overlay-btn">
+                  出击 {craftById(craft).name}
+                </button>
                 <div className="overlay-controls">
-                  <p>键盘: WASD/方向键移动 · 自动射击</p>
-                  <p>B 使用炸弹 · ESC 暂停 · F 全屏</p>
-                  <p>移动端: 触摸拖动控制飞机</p>
+                  <p>WASD / 方向键移动 · 自动射击 · B 炸弹</p>
+                  <p>ESC 暂停 · F 全屏 · M 静音</p>
                 </div>
               </div>
             )}
@@ -550,6 +604,14 @@ export default function RaidenGame() {
               </div>
             )}
 
+            <button
+              type="button"
+              className="game-mute"
+              onClick={toggleMute}
+              aria-label={muted ? "打开声音" : "静音"}
+            >
+              {muted ? "静音" : "声音"}
+            </button>
             <button
               type="button"
               className="game-expand"

@@ -12,6 +12,68 @@ export type WaveControl = "auto" | "manual";
 export type EnemyPattern = "dive" | "sine" | "strafe" | "hold";
 
 export type GamePhase = "menu" | "playing" | "paused" | "gameover";
+export type CraftId = "falcon" | "crow" | "kite";
+export type SfxEvent =
+  | "shot"
+  | "explode"
+  | "hurt"
+  | "pickup"
+  | "wave"
+  | "boss"
+  | "clear"
+  | "die";
+
+export interface CraftSpec {
+  id: CraftId;
+  name: string;
+  line: string;
+  shot: "twin" | "fan" | "needle";
+  speed: number;
+  hp: number;
+  fireRate: number;
+  bombs: number;
+  card: string;
+}
+
+export const CRAFTS: CraftSpec[] = [
+  {
+    id: "falcon",
+    name: "白隼",
+    line: "双管速射，均衡",
+    shot: "twin",
+    speed: 6,
+    hp: 100,
+    fireRate: 8,
+    bombs: 3,
+    card: "/den/craft-falcon.jpg",
+  },
+  {
+    id: "crow",
+    name: "赤鸦",
+    line: "扇形弹幕，偏慢",
+    shot: "fan",
+    speed: 4.6,
+    hp: 120,
+    fireRate: 10,
+    bombs: 4,
+    card: "/den/craft-crow.jpg",
+  },
+  {
+    id: "kite",
+    name: "青鸢",
+    line: "细针连射，偏快",
+    shot: "needle",
+    speed: 7.4,
+    hp: 80,
+    fireRate: 5,
+    bombs: 2,
+    card: "/den/craft-kite.jpg",
+  },
+];
+
+export function craftById(id: CraftId): CraftSpec {
+  return CRAFTS.find((craft) => craft.id === id) ?? CRAFTS[0];
+}
 
 export interface Vec2 {
   x: number;
@@ -83,6 +145,7 @@ export interface Player {
   spreadTimer: number;
   bombs: number;
   hurtTimer: number;
+  craft: CraftId;
 }
 
 export interface TouchState {
@@ -118,30 +181,32 @@ export interface TickInput {
   random?: () => number;
 }
 
-export function createPlayer(): Player {
+export function createPlayer(craftId: CraftId = "falcon"): Player {
+  const craft = craftById(craftId);
   return {
     x: CANVAS_W / 2,
     y: CANVAS_H - 110,
     width: 40,
     height: 40,
-    speed: PLAYER_SPEED,
-    hp: 100,
-    maxHp: 100,
+    speed: craft.speed,
+    hp: craft.hp,
+    maxHp: craft.hp,
     shield: 0,
-    fireRate: FIRE_RATE_DEFAULT,
+    fireRate: craft.fireRate,
     fireTimer: 0,
     powerLevel: 1,
     hasSpread: false,
     spreadTimer: 0,
-    bombs: 3,
+    bombs: craft.bombs,
     hurtTimer: 0,
+    craft: craft.id,
   };
 }
 
 export function createWorld(): World {
   return {
     phase: "menu",
-    player: createPlayer(),
+    player: createPlayer("falcon"),
     bullets: [],
     enemies: [],
     particles: [],
@@ -160,9 +225,9 @@ export function createWorld(): World {
   };
 }
 
-export function startGame(world: World): void {
+export function startGame(world: World, craft: CraftId = "falcon"): void {
   world.phase = "playing";
-  world.player = createPlayer();
+  world.player = createPlayer(craft);
   world.bullets = [];
   world.enemies = [];
   world.particles = [];
@@ -373,7 +438,7 @@ export function spawnWave(world: World, kind: WaveKind, random: () => number = M
   spawnBoss(world);
 }
 
-export function tickWave(world: World, random: () => number = Math.random): void {
+export function tickWave(world: World, random: () => number = Math.random, events: SfxEvent[] = []): void {
   if (world.waveControl !== "auto") return;
   if (world.bannerTimer > 0) world.bannerTimer--;
   world.waveTimer--;
@@ -383,6 +448,7 @@ export function tickWave(world: World, random: () => number = Math.random): void
       spawnWave(world, world.waveKind, random);
       world.wavePhase = "active";
       world.waveTimer = 12;
+      events.push(world.waveKind === "boss" ? "boss" : "wave");
     }
     return;
   }
@@ -393,6 +459,7 @@ export function tickWave(world: World, random: () => number = Math.random): void
       world.waveTimer = 64;
       world.banner = "CLEAR";
       world.bannerTimer = 48;
+      events.push("clear");
     }
     return;
   }
@@ -405,17 +472,18 @@ export function tickWave(world: World, random: () => number = Math.random): void
 export function firePlayerBullet(world: World): void {
   const p = world.player;
   const bulletSpeed = -10;
+  const craft = craftById(p.craft);
 
   const baseBullet: Omit<Bullet, "vx" | "vy"> = {
     x: 0,
     y: p.y - p.height / 2,
-    radius: 3,
-    damage: 1,
+    radius: craft.shot === "needle" ? 2 : 3,
+    damage: craft.shot === "needle" ? 1 : 1,
     friendly: true,
-    color: "#38bdf8",
+    color: craft.shot === "fan" ? "#fb923c" : craft.shot === "needle" ? "#7dd3fc" : "#38bdf8",
   };
 
-  if (p.hasSpread) {
+  if (p.hasSpread || craft.shot === "fan") {
     for (let i = -2; i <= 2; i++) {
       world.bullets.push({
         ...baseBullet,
@@ -424,10 +492,16 @@ export function firePlayerBullet(world: World): void {
         vx: i * 1.5,
       });
     }
-  } else {
-    world.bullets.push({ ...baseBullet, x: p.x - 8, vy: bulletSpeed, vx: 0 });
-    world.bullets.push({ ...baseBullet, x: p.x + 8, vy: bulletSpeed, vx: 0 });
+    return;
   }
+
+  if (craft.shot === "needle") {
+    world.bullets.push({ ...baseBullet, x: p.x, vy: bulletSpeed - 2, vx: 0 });
+    return;
+  }
+
+  world.bullets.push({ ...baseBullet, x: p.x - 8, vy: bulletSpeed, vx: 0 });
+  world.bullets.push({ ...baseBullet, x: p.x + 8, vy: bulletSpeed, vx: 0 });
 }
 
 export function fireEnemyBullet(world: World, enemy: Enemy, angle?: number): void {
@@ -527,20 +601,22 @@ export function movePlayer(player: Player, input: TickInput): void {
   );
 }
 
-function damagePlayer(world: World, amount: number): void {
+function damagePlayer(world: World, amount: number): SfxEvent | null {
   const p = world.player;
-  if (p.hurtTimer > 0) return;
+  if (p.hurtTimer > 0) return null;
   if (p.shield > 0) {
     p.shield--;
     p.hurtTimer = Math.floor(HURT_IFRAMES / 2);
-    return;
+    return "hurt";
   }
   p.hp -= amount;
   p.hurtTimer = HURT_IFRAMES;
   if (p.hp <= 0) {
     p.hp = 0;
     world.phase = "gameover";
+    return "die";
   }
+  return "hurt";
 }
 
 export function updateEnemyMotion(e: Enemy, now: number): void {
@@ -566,8 +642,9 @@ export function updateEnemyMotion(e: Enemy, now: number): void {
   e.x = Math.max(e.width / 2, Math.min(CANVAS_W - e.width / 2, e.x));
 }
 
-export function tickWorld(world: World, input: TickInput): void {
-  if (world.phase !== "playing") return;
+export function tickWorld(world: World, input: TickInput): SfxEvent[] {
+  const events: SfxEvent[] = [];
+  if (world.phase !== "playing") return events;
 
   const random = input.random ?? Math.random;
   const now = input.now ?? Date.now();
@@ -576,12 +653,13 @@ export function tickWorld(world: World, input: TickInput): void {
   movePlayer(p, input);
   if (p.hurtTimer > 0) p.hurtTimer--;
 
-  tickWave(world, random);
+  tickWave(world, random, events);
 
   p.fireTimer--;
   if (p.fireTimer <= 0) {
     firePlayerBullet(world);
     p.fireTimer = p.fireRate;
+    events.push("shot");
   }
 
   if (p.hasSpread) {
@@ -644,6 +722,7 @@ export function tickWorld(world: World, input: TickInput): void {
           spawnParticles(world, e.x, e.y, count, color, e.type === "boss" ? 6 : 4);
 
           world.enemies.splice(i, 1);
+          events.push("explode");
         }
         return false;
       }
@@ -659,7 +738,8 @@ export function tickWorld(world: World, input: TickInput): void {
       } else {
         spawnParticles(world, b.x, b.y, 5, "#f87171", 2);
       }
-      damagePlayer(world, b.damage);
+      const hit = damagePlayer(world, b.damage);
+      if (hit) events.push(hit);
       return false;
     }
     return true;
@@ -676,7 +756,8 @@ export function tickWorld(world: World, input: TickInput): void {
       } else {
         spawnParticles(world, e.x, e.y, 8, "#fbbf24", 3);
       }
-      damagePlayer(world, 15);
+      const ram = damagePlayer(world, 15);
+      if (ram) events.push(ram);
       spawnParticles(world, e.x, e.y, 8, "#fbbf24", 3);
       return e.hp > 0;
     }
@@ -688,6 +769,7 @@ export function tickWorld(world: World, input: TickInput): void {
     if (Math.abs(pu.x - p.x) < 25 && Math.abs(pu.y - p.y) < 25) {
       applyPickup(p, pu.type);
       spawnParticles(world, pu.x, pu.y, 8, "#4ade80", 2);
+      events.push("pickup");
       return false;
     }
     return pu.y < CANVAS_H + 20;
@@ -701,4 +783,6 @@ export function tickWorld(world: World, input: TickInput): void {
     pt.life--;
     return pt.life > 0;
   });
+
+  return events;
 }

@@ -174,6 +174,26 @@ describe("雷电 engine (shipped by /games/raiden)", () => {
     expect(world.player.y).toBe(CANVAS_H - 110);
   });
 
+  test("craft cards change speed and shot pattern", () => {
+    const kite = createWorld();
+    startGame(kite, "kite");
+    expect(kite.player.speed).toBeGreaterThan(6);
+    expect(kite.player.craft).toBe("kite");
+    kite.waveControl = "manual";
+    kite.player.fireTimer = 0;
+    kite.bullets = [];
+    tickWorld(kite, noSpawn);
+    expect(kite.bullets.filter((b) => b.friendly)).toHaveLength(1);
+
+    const crow = createWorld();
+    startGame(crow, "crow");
+    crow.waveControl = "manual";
+    crow.player.fireTimer = 0;
+    crow.bullets = [];
+    tickWorld(crow, noSpawn);
+    expect(crow.bullets.filter((b) => b.friendly).length).toBeGreaterThanOrEqual(5);
+  });
+
   test("bomb clears hostile fire and damages enemies", () => {
     const world = playable();
     world.player.bombs = 2;
