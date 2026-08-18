@@ -1,39 +1,24 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import Link from "next/link";
 import * as THREE from "three";
-
-// ─── Constants ───────────────────────────────────────────────────────
-const PIECE = 0.9;
-const GAP = 0.04;
-const STEP = PIECE + GAP;
-
-const FACE_COLORS: Record<string, number> = {
-  right: 0xc0392b,   // R — red
-  left: 0xe67e22,    // L — orange
-  top: 0xf1c40f,     // U — yellow
-  bottom: 0xecf0f1,  // D — white
-  front: 0x27ae60,   // F — green
-  back: 0x2980b9,    // B — blue
-};
-const INNER = 0x1a1a2e;
-
-// ─── Face notation helpers ───────────────────────────────────────────
-// Standard notation: each face has an axis, a layer position, and CW direction
-const FACE_MAP: Record<string, { axis: string; layer: number; cw: number; label: string }> = {
-  R: { axis: "x", layer: 2, cw: -1, label: "R" },
-  "R'": { axis: "x", layer: 2, cw: 1, label: "R'" },
-  L: { axis: "x", layer: 0, cw: 1, label: "L" },
-  "L'": { axis: "x", layer: 0, cw: -1, label: "L'" },
-  U: { axis: "y", layer: 2, cw: -1, label: "U" },
-  "U'": { axis: "y", layer: 2, cw: 1, label: "U'" },
-  D: { axis: "y", layer: 0, cw: 1, label: "D" },
-  "D'": { axis: "y", layer: 0, cw: -1, label: "D'" },
-  F: { axis: "z", layer: 2, cw: -1, label: "F" },
-  "F'": { axis: "z", layer: 2, cw: 1, label: "F'" },
-  B: { axis: "z", layer: 0, cw: 1, label: "B" },
-  "B'": { axis: "z", layer: 0, cw: -1, label: "B'" },
-};
+import {
+  FACE_COLORS,
+  FACE_MAP,
+  dominantFaceNormal,
+  faceIndexToNormal,
+  faceNormalVector,
+  generateScramble,
+  gridFromWorld,
+  inferLayerTurn,
+  INNER,
+  PIECE,
+  recordMove,
+  solveFromHistory,
+  STEP,
+  type LayerMove,
+} from "@/lib/cube";
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 function cubieMaterials(gx: number, gy: number, gz: number): THREE.Material[] {
@@ -68,27 +53,12 @@ export default function RubiksCube() {
     animQueue: [] as { axis: string; layer: number; dir: number; onComplete?: () => void }[],
     isAnimating: false,
     pointerDown: { x: 0, y: 0 },
-    moveHistory: [] as { axis: string; layer: number; dir: number }[],
+    moveHistory: [] as LayerMove[],
     hoveredCubie: -1,
-    lastInteraction: Date.now(),
+    lastInteraction: 0,
   });
 
   const rafRef = useRef(0);
-
-  // ─── Queue a layer rotation ──────────────────────────────────────
-  const queueRotation = useCallback(
-    (axis: string, layer: number, dir: number, onComplete?: () => void) => {
-      const s = state.current;
-      if (s.isAnimating) {
-        s.animQueue.push({ axis, layer, dir, onComplete });
-        return;
-      }
-      s.isAnimating = true;
-      setIsAnimating(true);
-      executeRotation(axis, layer, dir, onComplete);
-    },
-    [],
-  );
 
   function executeRotation(
     axis: string,
@@ -163,6 +133,25 @@ export default function RubiksCube() {
     requestAnimationFrame(animateStep);
   }
 
+  const queueRotation = useCallback(
+    (axis: string, layer: number, dir: number, onComplete?: () => void, record = true) => {
+      const s = state.current;
+      if (record) {
+        s.moveHistory = recordMove(s.moveHistory, { axis: axis as LayerMove["axis"], layer, dir });
+      }
+      if (s.isAnimating) {
+        s.animQueue.push({ axis, layer, dir, onComplete });
+        return;
+      }
+      s.isAnimating = true;
+      setIsAnimating(true);
+      executeRotation(axis, layer, dir, onComplete);
+    },
+    // executeRotation is a function declaration in this component and only reads refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
   // ─── Execute a named move ───────────────────────────────────────
   const executeMove = useCallback(
     (notation: string) => {
@@ -174,12 +163,21 @@ export default function RubiksCube() {
     [queueRotation],
   );
 
+  const applyUserTurn = useRef<(move: LayerMove) => void>(() => {});
+  useEffect(() => {
+    applyUserTurn.current = (move: LayerMove) => {
+      setMoveCount((count) => count + 1);
+      setScrambled(true);
+      queueRotation(move.axis, move.layer, move.dir);
+    };
+  }, [queueRotation]);
+
   // ─── Effect: setup scene ────────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -219,7 +217,6 @@ export default function RubiksCube() {
 
     // Build cubies
     const cubies: THREE.Mesh[] = [];
-    const geo = new THREE.BoxGeometry(PIECE, PIECE, PIECE);
     const roundGeo = new THREE.BoxGeometry(PIECE, PIECE, PIECE, 2, 2, 2);
     for (let x = 0; x < 3; x++) {
       for (let y = 0; y < 3; y++) {
@@ -251,10 +248,6 @@ export default function RubiksCube() {
       ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
     }
 
-    // Highlight helpers
-    const origMaterials = new Map<THREE.Mesh, THREE.Material[]>();
-    cubies.forEach((c) => origMaterials.set(c, (c.material as THREE.Material[])?.slice() ?? []));
-
     function highlightCubie(idx: number, color: number, intensity: number) {
       if (idx < 0 || idx >= cubies.length) return;
       const mesh = cubies[idx];
@@ -273,45 +266,85 @@ export default function RubiksCube() {
       const mesh = cubies[idx];
       const mats = mesh.material as THREE.Material[];
       if (!mats) return;
-      const orig = origMaterials.get(mesh);
-      if (orig) {
-        mesh.material = orig.map((m) => m.clone());
-      }
-    }
-
-    function resetAllHighlights() {
-      cubies.forEach((c) => {
-        const orig = origMaterials.get(c);
-        if (orig) c.material = orig.map((m) => m.clone());
+      mats.forEach((m) => {
+        if (m instanceof THREE.MeshStandardMaterial) {
+          m.emissive.setHex(0x000000);
+          m.emissiveIntensity = 0;
+        }
       });
     }
 
-    // Pointer events
+    function resetAllHighlights() {
+      cubies.forEach((_, i) => resetHighlight(i));
+    }
+
+    type DragMode = "none" | "pending" | "orbit" | "turn";
+    const drag = {
+      mode: "none" as DragMode,
+      faceIndex: -1,
+      mesh: null as THREE.Mesh | null,
+    };
+
+    function localDrag(dx: number, dy: number) {
+      const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+      const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+      const world = right.multiplyScalar(dx).add(up.multiplyScalar(-dy));
+      world.applyQuaternion(group.quaternion.clone().invert());
+      return world;
+    }
+
     function onPointerDown(e: PointerEvent) {
       state.current.lastPointer = { x: e.clientX, y: e.clientY };
       state.current.pointerDown = { x: e.clientX, y: e.clientY };
       state.current.dragging = true;
+      updateNDC(e);
+      raycaster.setFromCamera(ndc, camera);
+      const hits = raycaster.intersectObjects(cubies);
+      if (hits.length > 0 && typeof hits[0].faceIndex === "number") {
+        drag.mode = "pending";
+        drag.faceIndex = hits[0].faceIndex;
+        drag.mesh = hits[0].object as THREE.Mesh;
+      } else {
+        drag.mode = "orbit";
+      }
     }
 
     function onPointerMove(e: PointerEvent) {
-      // Only react to pointer events that originated on the canvas
       if (e.target !== canvas) return;
 
       if (state.current.dragging) {
-        const ddx = e.clientX - state.current.lastPointer.x;
-        const ddy = e.clientY - state.current.lastPointer.y;
-        state.current.rotY += ddx * 0.005;
-        state.current.rotX += ddy * 0.005;
-        // Snap to avoid floating point drift
-        state.current.rotX = Math.round(state.current.rotX * 1000) / 1000;
-        state.current.rotY = Math.round(state.current.rotY * 1000) / 1000;
+        const totalX = e.clientX - state.current.pointerDown.x;
+        const totalY = e.clientY - state.current.pointerDown.y;
+        const dist = Math.hypot(totalX, totalY);
+
+        if (drag.mode === "pending" && dist > 12 && drag.mesh) {
+          const grid = gridFromWorld(drag.mesh.position.x, drag.mesh.position.y, drag.mesh.position.z);
+          const local = faceNormalVector(faceIndexToNormal(drag.faceIndex));
+          const worldN = new THREE.Vector3(local.x, local.y, local.z).applyQuaternion(drag.mesh.quaternion);
+          const face = dominantFaceNormal(worldN.x, worldN.y, worldN.z);
+          const move = inferLayerTurn(grid, face, localDrag(totalX, totalY));
+          if (move && !state.current.isAnimating) {
+            applyUserTurn.current(move);
+            drag.mode = "turn";
+          } else {
+            drag.mode = "orbit";
+          }
+        }
+
+        if (drag.mode === "orbit") {
+          const ddx = e.clientX - state.current.lastPointer.x;
+          const ddy = e.clientY - state.current.lastPointer.y;
+          state.current.rotY += ddx * 0.005;
+          state.current.rotX += ddy * 0.005;
+          state.current.rotX = Math.round(state.current.rotX * 1000) / 1000;
+          state.current.rotY = Math.round(state.current.rotY * 1000) / 1000;
+          canvas!.style.cursor = "grabbing";
+        }
+
         state.current.lastPointer = { x: e.clientX, y: e.clientY };
-        state.current.lastInteraction = Date.now();
-        canvas!.style.cursor = "grabbing";
         return;
       }
 
-      // Not dragging — do hover raycast
       updateNDC(e);
       raycaster.setFromCamera(ndc, camera);
       const hits = raycaster.intersectObjects(cubies);
@@ -325,39 +358,31 @@ export default function RubiksCube() {
           highlightCubie(idx, 0x444466, 0.3);
           canvas!.style.cursor = "pointer";
           state.current.hoveredCubie = idx;
+          return;
         }
-      } else {
-        state.current.hoveredCubie = -1;
       }
-
+      state.current.hoveredCubie = -1;
       canvas!.style.cursor = "grab";
     }
 
     function onPointerUp(e: PointerEvent) {
-      // Only handle events that originated on the canvas
       if (e.target !== canvas) return;
-
-      state.current.dragging = false;
 
       const dx = e.clientX - state.current.pointerDown.x;
       const dy = e.clientY - state.current.pointerDown.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
+      const wasPending = drag.mode === "pending";
 
-      // Only handle click if it wasn't a drag
-      if (dist <= 8) {
-        // Click — select cubie
+      state.current.dragging = false;
+      drag.mode = "none";
+      drag.mesh = null;
+
+      if (wasPending && dist <= 12) {
         if (state.current.hoveredCubie >= 0) {
-          if (selectedCubie >= 0 && selectedCubie !== state.current.hoveredCubie) {
-            resetHighlight(selectedCubie);
-          }
           setSelectedCubie(state.current.hoveredCubie);
           highlightCubie(state.current.hoveredCubie, 0xff5c2a, 0.6);
         } else {
-          // Clicked empty space — deselect
-          if (selectedCubie >= 0) {
-            resetHighlight(selectedCubie);
-            setSelectedCubie(-1);
-          }
+          setSelectedCubie(-1);
         }
       }
 
@@ -412,23 +437,11 @@ export default function RubiksCube() {
       resetAllHighlights();
       renderer.dispose();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ─── Scramble ─────────────────────────────────────────────────
   const scramble = useCallback(() => {
-    const axes = ["x", "y", "z"] as const;
-    const layers = [0, 1, 2] as const;
-    const dirs = [-1, 1] as const;
-    const moves: { axis: string; layer: number; dir: number }[] = [];
-
-    for (let i = 0; i < 20; i++) {
-      moves.push({
-        axis: axes[Math.floor(Math.random() * 3)],
-        layer: layers[Math.floor(Math.random() * 3)],
-        dir: dirs[Math.floor(Math.random() * 2)],
-      });
-    }
+    const moves = generateScramble(20);
 
     setSelectedCubie(-1);
     setMoveCount(0);
@@ -447,8 +460,8 @@ export default function RubiksCube() {
   // ─── Solve (undo moves) ──────────────────────────────────────
   const solve = useCallback(() => {
     const s = state.current;
-    const history = [...s.moveHistory].reverse();
-    history.forEach(() => s.moveHistory.shift());
+    const undo = solveFromHistory(s.moveHistory);
+    s.moveHistory = [];
 
     setSelectedCubie(-1);
     setMoveCount(0);
@@ -456,9 +469,10 @@ export default function RubiksCube() {
 
     let i = 0;
     function execNext() {
-      if (i >= history.length) return;
+      if (i >= undo.length) return;
+      const move = undo[i];
       i++;
-      queueRotation(history[i - 1].axis, history[i - 1].layer, -history[i - 1].dir, execNext);
+      queueRotation(move.axis, move.layer, move.dir, execNext, false);
     }
     execNext();
   }, [queueRotation]);
@@ -492,7 +506,6 @@ export default function RubiksCube() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAnimating, executeMove]);
 
   // ─── Build face buttons ─────────────────────────────────────
@@ -521,13 +534,15 @@ export default function RubiksCube() {
   );
 
   return (
-    <div className="mx-auto max-w-[900px] px-6 py-8 sm:px-8 lg:px-12">
-      <a href="/" className="page-back">← 返回首页</a>
+    <div className="mx-auto max-w-[900px]">
+      <Link href="/" className="page-back">
+        ← 返回首页
+      </Link>
 
       <div className="mb-8">
         <h1 className="page-title">3D 魔方</h1>
         <p className="page-subtitle">
-          拖拽空白处旋转视角 · 点击下方按钮旋转层
+          在方块上滑动转一层 · 空白处拖动转视角
         </p>
         <p className="text-xs text-foreground/30 font-mono">
           {scrambled ? "已打乱 · " : ""}
@@ -572,7 +587,7 @@ export default function RubiksCube() {
                       title={moves[1]}
                     >
                       {ArrowCCW}
-                      <span className="kbd-hint kbd-hint-sm">{kbd}'</span>
+                      <span className="kbd-hint kbd-hint-sm">{`${kbd}'`}</span>
                     </button>
                   </div>
                 </div>

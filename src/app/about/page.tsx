@@ -1,38 +1,6 @@
 import Link from "next/link";
 import GameCard from "@/components/GameCard";
-
-const GAMES = [
-  {
-    id: "raiden",
-    title: "雷电",
-    category: "shooter",
-    description: "经典直向卷轴射击，驾驶战机横扫千军",
-    gradient: "from-red-600 to-orange-500",
-    featured: true,
-    players: "1",
-    tags: ["射击", "经典"],
-  },
-  {
-    id: "dna-helix",
-    title: "DNA 双螺旋",
-    category: "science",
-    description: "交互式 3D DNA 双螺旋，点击碱基对查看细节",
-    gradient: "from-teal-600 to-cyan-500",
-    featured: false,
-    players: "1",
-    tags: ["科学", "3D"],
-  },
-  {
-    id: "rubiks-cube",
-    title: "3D 魔方",
-    category: "puzzle",
-    description: "可交互 3D 魔方，单层旋转，一键复原",
-    gradient: "from-violet-600 to-purple-500",
-    featured: false,
-    players: "1",
-    tags: ["益智", "3D"],
-  },
-];
+import { GAMES } from "@/lib/catalog";
 
 export const metadata = {
   title: "关于 Pixel Den",
@@ -46,9 +14,9 @@ export default function AboutPage() {
       <section className="mb-16">
         <span className="hero-badge">
           <span className="w-1.5 h-1.5 rounded-full bg-accent inline-block" />
-          About
+          关于
         </span>
-        <h1 className="hero-title mt-3">Pixel Den</h1>
+        <h1 className="hero-title mt-3">关于 Pixel Den</h1>
         <p className="hero-desc" style={{ maxWidth: 560 }}>
           一个个人小游戏实验室。这里存放有意思的想法 — 想到了，就直接做成游戏。
           不追求数量，只追求每个作品都值得玩。

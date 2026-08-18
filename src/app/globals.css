@@ -91,10 +91,75 @@ a {
   color: var(--accent);
 }
 
+.logo-link {
+  display: inline-flex;
+  align-items: center;
+  color: inherit;
+}
+
 /* ── Nav ───────────────────────────────────────────────── */
 .main-nav {
   display: flex;
   gap: 24px;
+}
+
+.nav-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 40px;
+  height: 40px;
+  padding: 9px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  cursor: pointer;
+}
+
+.nav-toggle-bar {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background: var(--text-primary);
+  border-radius: 1px;
+}
+
+.mobile-nav {
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 24px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+.mobile-nav.open {
+  display: flex;
+}
+
+.mobile-nav .nav-link {
+  padding: 10px 0;
+}
+
+.mobile-nav .nav-link.active {
+  color: var(--accent);
+}
+
+.mobile-nav .nav-link.active::after {
+  display: none;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .nav-link {
@@ -118,28 +183,6 @@ a {
   right: 0;
   height: 1px;
   background: var(--accent);
-}
-
-/* ── Search ────────────────────────────────────────────── */
-.search-input {
-  height: 36px;
-  width: 200px;
-  padding: 0 14px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-  font-size: 13px;
-  outline: none;
-  transition: border-color 0.15s;
-}
-
-.search-input::placeholder {
-  color: var(--text-muted);
-}
-
-.search-input:focus {
-  border-color: var(--accent);
 }
 
 /* ── Hero Banner ───────────────────────────────────────── */
@@ -390,9 +433,9 @@ a {
 }
 
 .game-container-wide {
-  max-width: 600px;
-  aspect-ratio: auto;
-  max-height: 80vh;
+  max-width: 420px;
+  aspect-ratio: 400 / 700;
+  max-height: min(75vh, 700px);
 }
 
 .game-container canvas {
@@ -559,7 +602,7 @@ a {
 
 /* ── Touch Controls ────────────────────────────────────── */
 .touch-controls {
-  display: grid;
+  display: none;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   padding: 12px;
@@ -646,9 +689,36 @@ a {
 
 /* ── About page ─────────────────────────────────────────── */
 .philosophy-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pair-index-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.pair-index-btn {
+  min-width: 36px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-mono), monospace;
+  cursor: pointer;
+}
+
+.pair-index-btn:hover,
+.pair-index-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .philosophy-card {
@@ -803,8 +873,12 @@ kbd.kbd-hint {
     display: none;
   }
 
-  .search-input {
-    width: 140px;
+  .nav-toggle {
+    display: flex;
+  }
+
+  .touch-controls {
+    display: grid;
   }
 
   .hero-banner {

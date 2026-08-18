@@ -1,16 +1,8 @@
-interface Game {
-  id: string;
-  title: string;
-  category: string;
-  description: string;
-  gradient: string;
-  featured?: boolean;
-  players: string;
-  tags: string[];
-}
+import Link from "next/link";
+import type { GameInfo } from "@/lib/catalog";
 
 interface GameCardProps {
-  game: Game;
+  game: GameInfo;
 }
 
 const CATEGORY_BADGE: Record<string, string> = {
@@ -43,7 +35,7 @@ const CATEGORY_SYMBOLS: Record<string, string> = {
 
 export default function GameCard({ game }: GameCardProps) {
   return (
-    <a href={`/games/${game.id}`} className="game-card group">
+    <Link href={`/games/${game.id}`} className="game-card group">
       <div
         className={`card-preview bg-gradient-to-br ${CATEGORY_ICONS[game.category] ?? "from-gray-900/60 to-gray-800/30"}`}
       >
@@ -64,6 +56,6 @@ export default function GameCard({ game }: GameCardProps) {
           <span className="text-xs text-foreground/30">{game.players}P</span>
         </div>
       </div>
-    </a>
+    </Link>
   );
 }
