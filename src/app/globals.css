@@ -205,25 +205,172 @@ a {
 }
 
 /* ── Home ──────────────────────────────────────────────── */
-.home-page {
+.den-home {
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  max-width: 1120px;
-  min-height: calc(100dvh - 60px - 62px);
-  margin: 0 auto;
-  padding: 40px 24px 48px;
 }
 
-.home-lede {
-  max-width: 22ch;
-  margin-bottom: 48px;
-  font-size: clamp(22px, 3vw, 32px);
-  font-weight: 550;
-  letter-spacing: -0.03em;
-  line-height: 1.25;
+.den-hero {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: calc(100dvh - 60px);
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+
+.den-photo {
+  object-fit: cover;
+}
+
+.den-hero-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(10, 10, 15, 0.88) 0%, rgba(10, 10, 15, 0.42) 42%, transparent 68%),
+    linear-gradient(0deg, rgba(10, 10, 15, 0.62) 0%, transparent 38%);
+  pointer-events: none;
+}
+
+.den-hero-copy {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 40px 24px 56px;
+}
+
+.den-hero-copy h1 {
+  font-size: clamp(44px, 8vw, 84px);
+  font-weight: 650;
+  letter-spacing: -0.045em;
+  line-height: 0.92;
+}
+
+.den-hero-copy p {
+  max-width: 16ch;
+  margin-top: 14px;
+  font-size: clamp(16px, 2vw, 20px);
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.den-cta {
+  display: inline-flex;
+  align-items: center;
+  height: 42px;
+  margin-top: 24px;
+  padding: 0 20px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  transition:
+    background 0.16s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.den-cta:hover {
+  background: var(--accent-hover);
+}
+
+.den-cta:active {
+  transform: translateY(1px);
+}
+
+.den-cta:focus-visible,
+.den-poster:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.den-pair {
+  display: grid;
+  width: 100%;
+  gap: 12px;
+  padding: 12px 12px 48px;
+}
+
+.den-poster {
+  position: relative;
+  display: block;
+  height: 380px;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--bg-elevated);
+}
+
+.den-poster-dna {
+  height: 420px;
+}
+
+.den-poster .den-photo {
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.den-poster:hover .den-photo {
+  transform: scale(1.03);
+}
+
+.den-poster-copy {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 72px 22px 22px;
+  background: linear-gradient(180deg, transparent, rgba(10, 10, 15, 0.88));
   color: var(--text-primary);
-  text-wrap: pretty;
+}
+
+.den-poster-copy h2 {
+  font-size: clamp(26px, 3vw, 34px);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+
+.den-poster-copy p {
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.den-about-still {
+  position: relative;
+  height: min(42vw, 380px);
+  min-height: 220px;
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+
+@media (min-width: 1024px) {
+  .den-hero-copy {
+    padding: 56px 48px 72px;
+  }
+
+  .den-pair {
+    grid-template-columns: 1.2fr 0.8fr;
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 16px 16px 64px;
+  }
+
+  .den-poster {
+    height: 560px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .den-poster .den-photo,
+  .den-cta {
+    transition: none;
+  }
+
+  .den-poster:hover .den-photo {
+    transform: none;
+  }
 }
 
 .game-board {
@@ -354,16 +501,6 @@ a {
 
   .game-row-main {
     padding: 36px 0;
-  }
-}
-
-@media (min-width: 1024px) {
-  .home-page {
-    padding: 56px 48px 64px;
-  }
-
-  .home-lede {
-    margin-bottom: 72px;
   }
 }
 
@@ -1414,10 +1551,6 @@ kbd.kbd-hint {
 
   .touch-controls {
     display: grid;
-  }
-
-  .home-page {
-    padding: 24px 16px 56px;
   }
 
   .footer-inner {

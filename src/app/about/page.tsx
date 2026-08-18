@@ -1,3 +1,4 @@
+import Image from "next/image";
 import GameIndex from "@/components/GameIndex";
 import { GAMES } from "@/lib/catalog";
 
@@ -8,38 +9,51 @@ export const metadata = {
 
 export default function AboutPage() {
   return (
-    <div className="site-shell about-page">
-      <header className="about-intro">
-        <h1 className="about-title">关于</h1>
-        <p className="about-lede">
-          Pixel Den 是个人工坊。想到了就做成游戏，做完才算数。
-        </p>
-      </header>
+    <div className="den-about">
+      <div className="den-about-still">
+        <Image
+          src="/den/bench.jpg"
+          alt="一盏橙灯照着深夜的工作台"
+          fill
+          priority
+          sizes="100vw"
+          className="den-photo"
+        />
+      </div>
 
-      <section className="about-notes">
-        <article>
-          <h2>想法做成游戏</h2>
-          <p>脑子里冒出机制或交互，直接上手。游戏本身就是验证。</p>
-        </article>
-        <article>
-          <h2>少而精</h2>
-          <p>每个作品对应一次完整的技术探索。做完一个，才算数。</p>
-        </article>
-        <article>
-          <h2>即开即玩</h2>
-          <p>不用下载，不用注册。浏览器打开就能玩。</p>
-        </article>
-      </section>
+      <div className="site-shell about-page">
+        <header className="about-intro">
+          <h1 className="about-title">关于</h1>
+          <p className="about-lede">
+            Pixel Den 是个人工坊。想到了就做成游戏，做完才算数。
+          </p>
+        </header>
 
-      <section className="about-stack">
-        <h2>用到的工具</h2>
-        <p>Next.js 16，React 19，Tailwind，Three.js，Canvas 2D</p>
-      </section>
+        <section className="about-notes">
+          <article>
+            <h2>想法做成游戏</h2>
+            <p>脑子里冒出机制或交互，直接上手。游戏本身就是验证。</p>
+          </article>
+          <article>
+            <h2>少而精</h2>
+            <p>每个作品对应一次完整的技术探索。做完一个，才算数。</p>
+          </article>
+          <article>
+            <h2>即开即玩</h2>
+            <p>不用下载，不用注册。浏览器打开就能玩。</p>
+          </article>
+        </section>
 
-      <section className="about-games">
-        <h2>当前能玩</h2>
-        <GameIndex ids={GAMES.map((game) => game.id)} size="compact" />
-      </section>
+        <section className="about-stack">
+          <h2>用到的工具</h2>
+          <p>Next.js 16，React 19，Tailwind，Three.js，Canvas 2D</p>
+        </section>
+
+        <section className="about-games">
+          <h2>当前能玩</h2>
+          <GameIndex ids={GAMES.map((game) => game.id)} size="compact" />
+        </section>
+      </div>
     </div>
   );
 }
