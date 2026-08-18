@@ -40,7 +40,6 @@ export default function RubiksCube() {
   const [isAnimating, setIsAnimating] = useState(false);
   const [moveCount, setMoveCount] = useState(0);
   const [scrambled, setScrambled] = useState(false);
-  const [selectedCubie, setSelectedCubie] = useState<number>(-1);
 
   const state = useRef({
     cubies: [] as THREE.Mesh[],
@@ -178,8 +177,15 @@ export default function RubiksCube() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const surface = canvas;
 
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ canvas: surface, antialias: true, preserveDrawingBuffer: true });
+    } catch {
+      surface.dataset.gl = "fail";
+      return;
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -188,32 +194,33 @@ export default function RubiksCube() {
     state.current.renderer = renderer;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0a14);
+    scene.background = new THREE.Color(0x12121a);
     state.current.scene = scene;
 
-    const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
-    camera.position.set(5, 4, 6);
-    camera.lookAt(0, 0, 0);
+    const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);
+    camera.position.set(5.1, 4.5, 6.1);
+    camera.lookAt(0, 0.5, 0);
     state.current.camera = camera;
 
-    // Lights
-    scene.add(new THREE.AmbientLight(0x404060, 1.0));
-    const dl = new THREE.DirectionalLight(0xffffff, 2.5);
-    dl.position.set(6, 10, 8);
+    scene.add(new THREE.AmbientLight(0x2c2c3c, 0.9));
+    const dl = new THREE.DirectionalLight(0xffffff, 2.2);
+    dl.position.set(5, 9, 6);
     dl.castShadow = true;
     dl.shadow.mapSize.set(1024, 1024);
     scene.add(dl);
-    const fl = new THREE.PointLight(0x6366f1, 1, 20);
-    fl.position.set(-5, 3, -3);
-    scene.add(fl);
+    const lamp = new THREE.PointLight(0xff5c2a, 0.5, 24);
+    lamp.position.set(-6, 4, -2);
+    scene.add(lamp);
+    const fill = new THREE.PointLight(0x8a93b0, 0.22, 18);
+    fill.position.set(2, -1, 6);
+    scene.add(fill);
 
-    // Ground shadow
     const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(30, 30),
-      new THREE.ShadowMaterial({ opacity: 0.25 }),
+      new THREE.CircleGeometry(4.2, 48),
+      new THREE.ShadowMaterial({ opacity: 0.38 }),
     );
     ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -2.5;
+    ground.position.y = -2.35;
     ground.receiveShadow = true;
     scene.add(ground);
 
@@ -245,7 +252,7 @@ export default function RubiksCube() {
     const ndc = new THREE.Vector2();
 
     function updateNDC(e: PointerEvent) {
-      const rect = canvas!.getBoundingClientRect();
+      const rect = surface.getBoundingClientRect();
       ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
     }
@@ -312,7 +319,7 @@ export default function RubiksCube() {
     }
 
     function onPointerMove(e: PointerEvent) {
-      if (e.target !== canvas) return;
+      if (e.target !== surface) return;
 
       if (state.current.dragging) {
         const totalX = e.clientX - state.current.pointerDown.x;
@@ -340,7 +347,7 @@ export default function RubiksCube() {
           state.current.rotX += ddy * 0.005;
           state.current.rotX = Math.round(state.current.rotX * 1000) / 1000;
           state.current.rotY = Math.round(state.current.rotY * 1000) / 1000;
-          canvas!.style.cursor = "grabbing";
+          surface.style.cursor = "grabbing";
         }
 
         state.current.lastPointer = { x: e.clientX, y: e.clientY };
@@ -358,37 +365,21 @@ export default function RubiksCube() {
         const idx = hit.userData.cubieIndex as number;
         if (idx >= 0) {
           highlightCubie(idx, 0x444466, 0.3);
-          canvas!.style.cursor = "pointer";
+          surface.style.cursor = "pointer";
           state.current.hoveredCubie = idx;
           return;
         }
       }
       state.current.hoveredCubie = -1;
-      canvas!.style.cursor = "grab";
+      surface.style.cursor = "grab";
     }
 
     function onPointerUp(e: PointerEvent) {
-      if (e.target !== canvas) return;
-
-      const dx = e.clientX - state.current.pointerDown.x;
-      const dy = e.clientY - state.current.pointerDown.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const wasPending = drag.mode === "pending";
-
+      if (e.target !== surface) return;
       state.current.dragging = false;
       drag.mode = "none";
       drag.mesh = null;
-
-      if (wasPending && dist <= 12) {
-        if (state.current.hoveredCubie >= 0) {
-          setSelectedCubie(state.current.hoveredCubie);
-          highlightCubie(state.current.hoveredCubie, 0xff5c2a, 0.6);
-        } else {
-          setSelectedCubie(-1);
-        }
-      }
-
-      canvas!.style.cursor = "grab";
+      surface.style.cursor = "grab";
     }
 
     function onPointerLeave() {
@@ -396,46 +387,48 @@ export default function RubiksCube() {
       state.current.dragging = false;
     }
 
-    if (canvas) {
-      canvas.addEventListener("pointerdown", onPointerDown);
-      canvas.addEventListener("pointermove", onPointerMove);
-      canvas.addEventListener("pointerup", onPointerUp);
-      canvas.addEventListener("pointerleave", onPointerLeave);
-    }
+    surface.addEventListener("pointerdown", onPointerDown);
+    surface.addEventListener("pointermove", onPointerMove);
+    surface.addEventListener("pointerup", onPointerUp);
+    surface.addEventListener("pointerleave", onPointerLeave);
 
     // ─── Resize ─────────────────────────────────────────────────
     function resize() {
-      if (!canvas) return;
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      renderer.setSize(w, h);
+      const w = surface.clientWidth;
+      const h = surface.clientHeight;
+      if (w < 2 || h < 2) return;
+      renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
     }
     resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(surface);
     window.addEventListener("resize", resize);
 
     // ─── Render loop ────────────────────────────────────────────
     function animate() {
       rafRef.current = requestAnimationFrame(animate);
-
-      if (group) {
-        group.rotation.x = state.current.rotX;
-        group.rotation.y = state.current.rotY;
+      try {
+        if (group) {
+          group.rotation.x = state.current.rotX;
+          group.rotation.y = state.current.rotY;
+        }
+        renderer.render(scene, camera);
+      } catch {
+        cancelAnimationFrame(rafRef.current);
       }
-      renderer.render(scene, camera);
     }
     animate();
 
     return () => {
       cancelAnimationFrame(rafRef.current);
-      if (canvas) {
-        canvas.removeEventListener("pointerdown", onPointerDown);
-        canvas.removeEventListener("pointermove", onPointerMove);
-        canvas.removeEventListener("pointerup", onPointerUp);
-        canvas.removeEventListener("pointerleave", onPointerLeave);
-      }
+      surface.removeEventListener("pointerdown", onPointerDown);
+      surface.removeEventListener("pointermove", onPointerMove);
+      surface.removeEventListener("pointerup", onPointerUp);
+      surface.removeEventListener("pointerleave", onPointerLeave);
       window.removeEventListener("resize", resize);
+      ro.disconnect();
       resetAllHighlights();
       renderer.dispose();
     };
@@ -444,8 +437,6 @@ export default function RubiksCube() {
   // ─── Scramble ─────────────────────────────────────────────────
   const scramble = useCallback(() => {
     const moves = generateScramble(20);
-
-    setSelectedCubie(-1);
     setMoveCount(0);
     setScrambled(true);
 
@@ -465,7 +456,6 @@ export default function RubiksCube() {
     const undo = solveFromHistory(s.moveHistory);
     s.moveHistory = [];
 
-    setSelectedCubie(-1);
     setMoveCount(0);
     setScrambled(false);
 
@@ -510,137 +500,105 @@ export default function RubiksCube() {
     return () => window.removeEventListener("keydown", handler);
   }, [isAnimating, executeMove]);
 
-  // ─── Build face buttons ─────────────────────────────────────
-  // Group moves by face
-  const faceGroups = [
-    { face: "R", label: "右", moves: ["R", "R'"] },
-    { face: "L", label: "左", moves: ["L", "L'"] },
-    { face: "U", label: "上", moves: ["U", "U'"] },
-    { face: "D", label: "下", moves: ["D", "D'"] },
-    { face: "F", label: "前", moves: ["F", "F'"] },
-    { face: "B", label: "后", moves: ["B", "B'"] },
+  const faces = [
+    { face: "U" as const, label: "上", moves: ["U", "U'"] },
+    { face: "L" as const, label: "左", moves: ["L", "L'"] },
+    { face: "F" as const, label: "前", moves: ["F", "F'"] },
+    { face: "R" as const, label: "右", moves: ["R", "R'"] },
+    { face: "B" as const, label: "后", moves: ["B", "B'"] },
+    { face: "D" as const, label: "下", moves: ["D", "D'"] },
   ];
 
-  // SVG arrow icons for CW/CCW
-  const ArrowCW = (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2a10 10 0 1 0 10 10" />
-      <path d="M12 12l6-6v6" />
-    </svg>
-  );
-  const ArrowCCW = (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2a10 10 0 1 1-10 10" />
-      <path d="M12 12l-6-6v6" />
-    </svg>
-  );
-
   return (
-    <div className="mx-auto max-w-[900px]">
-      <Link href="/" className="page-back">
-        ← 返回首页
-      </Link>
+    <div className="cube-page">
+      <div className="cube-stage">
+        <canvas ref={canvasRef} className="cube-canvas" />
+        <div className="cube-vignette" aria-hidden="true" />
+        <p className="cube-fallback">这个魔方需要 WebGL</p>
 
-      <div className="mb-8">
-        <h1 className="page-title">3D 魔方</h1>
-        <p className="page-subtitle">
-          在方块上滑动转一层 · 空白处拖动转视角
-          <br />
-          重置视角后：前绿 · 右红 · 上黄
-        </p>
-        <p className="text-xs text-foreground/30 font-mono">
-          {scrambled ? "已打乱 · " : ""}
-          步数: {moveCount}
-          {selectedCubie >= 0 && ` · 已选方块 #${selectedCubie + 1}`}
-        </p>
-      </div>
-
-      <div className="flex flex-col items-center gap-6">
-        {/* Canvas */}
-        <canvas
-          ref={canvasRef}
-          className="w-full rounded-xl border border-border bg-[#0a0a14]"
-          style={{ height: "min(55vh, 500px)", cursor: "grab" }}
-        />
-
-        {/* Controls */}
-        <div className="w-full max-w-2xl">
-          {/* Face rotation grid */}
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-4">
-            {faceGroups.map(({ face, label, moves }) => {
-              const kbd = face;
-              return (
-                <div key={face} className="flex flex-col items-center gap-1.5">
-                  <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-foreground/40">
-                    <span
-                      className="inline-block h-2 w-2 rounded-full"
-                      style={{
-                        background: FACE_HEX[face as keyof typeof FACE_HEX],
-                        boxShadow: face === "D" ? "inset 0 0 0 1px #55556a" : undefined,
-                      }}
-                    />
-                    {label}
-                  </span>
-                  <div className="flex gap-1.5">
-                    <button
-                      onClick={() => executeMove(moves[0])}
-                      disabled={isAnimating}
-                      className="ctrl-btn group relative"
-                      title={moves[0]}
-                    >
-                      {ArrowCW}
-                      <span className="kbd-hint">{kbd}</span>
-                    </button>
-                    <button
-                      onClick={() => executeMove(moves[1])}
-                      disabled={isAnimating}
-                      className="ctrl-btn group relative"
-                      title={moves[1]}
-                    >
-                      {ArrowCCW}
-                      <span className="kbd-hint kbd-hint-sm">{`${kbd}'`}</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+        <header className="cube-bar">
+          <div className="cube-bar-copy">
+            <Link href="/" className="cube-back">
+              返回
+            </Link>
+            <h1 className="cube-title">魔方</h1>
+            <p className="cube-lede">色块上滑动转一层，空白处拖动转视角</p>
           </div>
-
-          {/* Keyboard shortcut legend */}
-          <div className="text-center mb-2">
-            <span className="text-[11px] text-foreground/30">
-              键盘: <kbd className="kbd-hint inline">R</kbd> <kbd className="kbd-hint inline">L</kbd> <kbd className="kbd-hint inline">U</kbd> <kbd className="kbd-hint inline">D</kbd> <kbd className="kbd-hint inline">F</kbd> <kbd className="kbd-hint inline">B</kbd> 旋转 · <kbd className="kbd-hint inline">Shift</kbd>+键 反向
+          <p className="cube-steps">
+            <span className="cube-steps-count">{moveCount}</span>
+            <span className="cube-steps-meta">
+              步{scrambled ? " · 已打乱" : ""}
             </span>
-          </div>
+          </p>
+        </header>
 
-          {/* Action buttons */}
-          <div className="flex flex-wrap justify-center gap-3">
-            <button
-              onClick={scramble}
-              disabled={isAnimating}
-              className="action-btn action-btn-accent"
+        <div className="cube-hud">
+        <div className="cube-tools">
+          <button
+            type="button"
+            onClick={scramble}
+            disabled={isAnimating}
+            className="cube-tool cube-tool-accent"
+          >
+            {scrambled ? "重新打乱" : "打乱"}
+          </button>
+          <button
+            type="button"
+            onClick={solve}
+            disabled={isAnimating || !scrambled}
+            className="cube-tool"
+          >
+            复原
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              state.current.rotX = HOME_VIEW.rotX;
+              state.current.rotY = HOME_VIEW.rotY;
+            }}
+            disabled={isAnimating}
+            className="cube-tool"
+          >
+            重置视角
+          </button>
+          <p className="cube-hint">键盘 R L U D F B，Shift 反向</p>
+        </div>
+
+        <div className="cube-net" role="group" aria-label="按面转动">
+          {faces.map(({ face, label, moves }) => (
+            <div
+              key={face}
+              className="cube-cell"
+              data-face={face}
+              style={{ ["--cell" as string]: FACE_HEX[face] }}
             >
-              {scrambled ? "重新打乱" : "打乱"}
-            </button>
-            <button
-              onClick={solve}
-              disabled={isAnimating || !scrambled}
-              className="action-btn action-btn-green"
-            >
-              复原
-            </button>
-            <button
-              onClick={() => {
-                setSelectedCubie(-1);
-                state.current.rotX = HOME_VIEW.rotX;
-                state.current.rotY = HOME_VIEW.rotY;
-              }}
-              disabled={isAnimating}
-              className="action-btn"
-            >
-              重置视角
-            </button>
-          </div>
+              <span className="cube-cell-name">
+                {label}
+                <span className="cube-cell-key">{face}</span>
+              </span>
+              <span className="cube-cell-turns">
+                <button
+                  type="button"
+                  onClick={() => executeMove(moves[0])}
+                  disabled={isAnimating}
+                  className="cube-turn"
+                  aria-label={`${label}面顺时针`}
+                >
+                  顺
+                </button>
+                <button
+                  type="button"
+                  onClick={() => executeMove(moves[1])}
+                  disabled={isAnimating}
+                  className="cube-turn"
+                  aria-label={`${label}面逆时针`}
+                >
+                  逆
+                </button>
+              </span>
+            </div>
+          ))}
+        </div>
         </div>
       </div>
     </div>
