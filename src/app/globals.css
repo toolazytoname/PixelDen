@@ -433,9 +433,67 @@ a {
 }
 
 .game-container-wide {
-  max-width: 420px;
+  width: min(640px, 100%, calc((100vh - 168px) * 400 / 700));
+  max-width: none;
   aspect-ratio: 400 / 700;
-  max-height: min(75vh, 700px);
+  max-height: calc(100vh - 168px);
+}
+
+.game-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.game-expand {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.game-expand:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.game-stage:fullscreen,
+.game-stage:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 16px;
+  background: var(--bg);
+  justify-content: center;
+}
+
+.game-stage:fullscreen .game-container,
+.game-stage:-webkit-full-screen .game-container {
+  max-width: none;
+  max-height: calc(100vh - 96px);
+  width: min(calc((100vh - 96px) * 400 / 700), calc(100vw - 24px));
+  height: auto;
+  border-radius: 0;
+  border: none;
+}
+
+.game-stage:fullscreen .game-expand,
+.game-stage:-webkit-full-screen .game-expand {
+  top: 20px;
+  right: 20px;
 }
 
 .game-container canvas {
@@ -449,11 +507,13 @@ a {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
+  width: 100%;
 }
 
 /* ── Overlay Menus ─────────────────────────────────────── */
 .overlay-menu {
+  z-index: 2;
   position: absolute;
   inset: 0;
   display: flex;
@@ -507,6 +567,7 @@ a {
 }
 
 .overlay-paused {
+  z-index: 2;
   position: absolute;
   inset: 0;
   display: flex;
@@ -523,7 +584,7 @@ a {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  max-width: 480px;
+  max-width: 560px;
   padding: 12px 16px;
   border-radius: 12px;
   border: 1px solid var(--border);

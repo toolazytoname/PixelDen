@@ -237,8 +237,29 @@ function drawBackdrop(ctx: CanvasRenderingContext2D, stars: { x: number; y: numb
   ctx.fillRect(0, CANVAS_H - 90, CANVAS_W, 90);
 }
 
+function fullscreenElement() {
+  const doc = document as Document & { webkitFullscreenElement?: Element | null };
+  return document.fullscreenElement ?? doc.webkitFullscreenElement ?? null;
+}
+
+function requestStageFullscreen(el: HTMLElement): Promise<void> {
+  const node = el as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void };
+  if (el.requestFullscreen) return el.requestFullscreen();
+  if (node.webkitRequestFullscreen) return Promise.resolve(node.webkitRequestFullscreen());
+  return Promise.reject(new Error("fullscreen unavailable"));
+}
+
+function exitStageFullscreen(): Promise<void> {
+  const doc = document as Document & { webkitExitFullscreen?: () => Promise<void> | void };
+  if (document.exitFullscreen) return document.exitFullscreen();
+  if (doc.webkitExitFullscreen) return Promise.resolve(doc.webkitExitFullscreen());
+  return Promise.resolve();
+}
+
 export default function RaidenGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
   const [gameState, setGameState] = useState<World["phase"]>("menu");
   const [score, setScore] = useState(0);
   const [level, setLevel] = useState(1);
@@ -363,12 +384,38 @@ export default function RaidenGame() {
     }
   }, []);
 
+  const toggleExpand = useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    if (fullscreenElement()) {
+      void exitStageFullscreen();
+      return;
+    }
+    void requestStageFullscreen(stage).catch(() => {
+      setExpanded(false);
+    });
+  }, []);
+
+  useEffect(() => {
+    const sync = () => setExpanded(Boolean(fullscreenElement()));
+    document.addEventListener("fullscreenchange", sync);
+    document.addEventListener("webkitfullscreenchange", sync);
+    return () => {
+      document.removeEventListener("fullscreenchange", sync);
+      document.removeEventListener("webkitfullscreenchange", sync);
+    };
+  }, []);
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       keysRef.current.add(e.key);
       if (e.key === " " || e.key === "Space") e.preventDefault();
       if (e.key === "b" || e.key === "B") handleBomb();
-      if (e.key === "Escape" && worldRef.current.phase === "playing") {
+      if ((e.key === "f" || e.key === "F") && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        toggleExpand();
+      }
+      if (e.key === "Escape" && worldRef.current.phase === "playing" && !fullscreenElement()) {
         pauseGame(worldRef.current);
         setGameState("paused");
       }
@@ -382,7 +429,7 @@ export default function RaidenGame() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [handleBomb]);
+  }, [handleBomb, toggleExpand]);
 
   const handleStart = () => {
     startGame(worldRef.current);
@@ -426,17 +473,23 @@ export default function RaidenGame() {
 
   return (
     <div>
-      <Link href="/" className="page-back">
-        ← 返回首页
-      </Link>
-
-      <div className="flex flex-col items-center gap-6">
-        <div className="text-center">
-          <h1 className="page-title">{FEATURED_TITLE}</h1>
-          <p className="page-subtitle">{FEATURED_SUBTITLE}</p>
+      <div className="flex flex-col items-center gap-4">
+        <div className="flex w-full max-w-[640px] items-baseline justify-between gap-4">
+          <Link href="/" className="page-back" style={{ marginBottom: 0 }}>
+            ← 返回首页
+          </Link>
+          <div className="text-right">
+            <h1 className="page-title" style={{ marginBottom: 0 }}>
+              {FEATURED_TITLE}
+            </h1>
+            <p className="page-subtitle" style={{ marginBottom: 0 }}>
+              {FEATURED_SUBTITLE}
+            </p>
+          </div>
         </div>
 
         <div className="canvas-wrapper">
+          <div className="game-stage" ref={stageRef}>
           <div className="game-container game-container-wide">
             <canvas
               ref={canvasRef}
@@ -459,7 +512,7 @@ export default function RaidenGame() {
                 </div>
                 <div className="overlay-controls">
                   <p>键盘: WASD/方向键移动 · 自动射击</p>
-                  <p>B 使用炸弹 · ESC 暂停</p>
+                  <p>B 使用炸弹 · ESC 暂停 · F 全屏</p>
                   <p>移动端: 触摸拖动控制飞机</p>
                 </div>
               </div>
@@ -496,6 +549,24 @@ export default function RaidenGame() {
                 </button>
               </div>
             )}
+
+            <button
+              type="button"
+              className="game-expand"
+              onClick={toggleExpand}
+              aria-label={expanded ? "退出全屏" : "全屏游玩"}
+              title={expanded ? "退出全屏 (F)" : "全屏游玩 (F)"}
+            >
+              {expanded ? (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M6 2H3v3M10 2h3v3M6 14H3v-3M10 14h3v-3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M3 6V3h3M10 3h3v3M3 10v3h3M13 10v3h-3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </button>
           </div>
 
           {gameState === "playing" && (
@@ -528,7 +599,6 @@ export default function RaidenGame() {
               </div>
             </div>
           )}
-        </div>
 
         <div className="touch-controls">
           <button
@@ -563,6 +633,8 @@ export default function RaidenGame() {
             炸弹 (B)
           </button>
         </div>
+          </div>
+        </div>
 
         <div className="hidden max-w-md rounded-xl border border-border bg-card p-4 text-sm text-foreground/60 md:block">
           <h3 className="mb-2 font-semibold text-foreground">操作说明</h3>
@@ -577,6 +649,9 @@ export default function RaidenGame() {
             </div>
             <div>
               <kbd className="rounded bg-border px-1.5 py-0.5 text-xs">ESC</kbd> 暂停
+            </div>
+            <div>
+              <kbd className="rounded bg-border px-1.5 py-0.5 text-xs">F</kbd> 全屏
             </div>
           </div>
         </div>
