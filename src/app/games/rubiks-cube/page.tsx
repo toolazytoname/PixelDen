@@ -5,7 +5,9 @@ import Link from "next/link";
 import * as THREE from "three";
 import {
   FACE_COLORS,
+  FACE_HEX,
   FACE_MAP,
+  HOME_VIEW,
   dominantFaceNormal,
   faceIndexToNormal,
   faceNormalVector,
@@ -47,8 +49,8 @@ export default function RubiksCube() {
     renderer: null as THREE.WebGLRenderer | null,
     scene: null as THREE.Scene | null,
     dragging: false,
-    rotX: 0.6,
-    rotY: -0.8,
+    rotX: HOME_VIEW.rotX,
+    rotY: HOME_VIEW.rotY,
     lastPointer: { x: 0, y: 0 },
     animQueue: [] as { axis: string; layer: number; dir: number; onComplete?: () => void }[],
     isAnimating: false,
@@ -543,6 +545,8 @@ export default function RubiksCube() {
         <h1 className="page-title">3D 魔方</h1>
         <p className="page-subtitle">
           在方块上滑动转一层 · 空白处拖动转视角
+          <br />
+          重置视角后：前绿 · 右红 · 上黄
         </p>
         <p className="text-xs text-foreground/30 font-mono">
           {scrambled ? "已打乱 · " : ""}
@@ -567,7 +571,14 @@ export default function RubiksCube() {
               const kbd = face;
               return (
                 <div key={face} className="flex flex-col items-center gap-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/40">
+                  <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-foreground/40">
+                    <span
+                      className="inline-block h-2 w-2 rounded-full"
+                      style={{
+                        background: FACE_HEX[face as keyof typeof FACE_HEX],
+                        boxShadow: face === "D" ? "inset 0 0 0 1px #55556a" : undefined,
+                      }}
+                    />
                     {label}
                   </span>
                   <div className="flex gap-1.5">
@@ -621,8 +632,8 @@ export default function RubiksCube() {
             <button
               onClick={() => {
                 setSelectedCubie(-1);
-                state.current.rotX = 0.6;
-                state.current.rotY = -0.8;
+                state.current.rotX = HOME_VIEW.rotX;
+                state.current.rotY = HOME_VIEW.rotY;
               }}
               disabled={isAnimating}
               className="action-btn"

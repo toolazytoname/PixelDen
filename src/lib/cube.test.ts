@@ -5,7 +5,9 @@ import {
   applyMoves,
   createSolvedCubies,
   FACE_COLORS,
+  FACE_HEX,
   FACE_MAP,
+  HOME_VIEW,
   dominantFaceNormal,
   faceIndexToNormal,
   faceNormalVector,
@@ -25,8 +27,20 @@ describe("3D 魔方 logic (shipped by /games/rubiks-cube)", () => {
     expect(page).toContain("recordMove");
     expect(page).toContain("solveFromHistory");
     expect(page).toContain("FACE_MAP");
+    expect(page).toContain("HOME_VIEW");
     expect(page).toContain("inferLayerTurn");
     expect(existsSync(path.join(process.cwd(), "src/app/games/rubiks-cube/page.tsx"))).toBe(true);
+  });
+
+  test("home view is unrotated so 前/右/上 match F/R/U", () => {
+    expect(HOME_VIEW.rotX).toBe(0);
+    expect(HOME_VIEW.rotY).toBe(0);
+    expect(FACE_HEX.F).toBe("#27ae60");
+    expect(FACE_HEX.R).toBe("#c0392b");
+    expect(FACE_HEX.U).toBe("#f1c40f");
+    expect(FACE_MAP.F.axis).toBe("z");
+    expect(FACE_MAP.R.axis).toBe("x");
+    expect(FACE_MAP.U.axis).toBe("y");
   });
 
   test("standard face colors are present", () => {

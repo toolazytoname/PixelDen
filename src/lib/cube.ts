@@ -13,6 +13,22 @@ export const FACE_COLORS: Record<string, number> = {
 
 export const INNER = 0x1a1a2e;
 
+/** Group rotation that keeps 前=绿 / 右=红 / 上=黄 with the default camera. */
+export const HOME_VIEW: { rotX: number; rotY: number } = { rotX: 0, rotY: 0 };
+
+function toCssHex(value: number) {
+  return `#${value.toString(16).padStart(6, "0")}`;
+}
+
+export const FACE_HEX: Record<"R" | "L" | "U" | "D" | "F" | "B", string> = {
+  R: toCssHex(FACE_COLORS.right),
+  L: toCssHex(FACE_COLORS.left),
+  U: toCssHex(FACE_COLORS.top),
+  D: toCssHex(FACE_COLORS.bottom),
+  F: toCssHex(FACE_COLORS.front),
+  B: toCssHex(FACE_COLORS.back),
+};
+
 export type Axis = "x" | "y" | "z";
 
 export interface LayerMove {
