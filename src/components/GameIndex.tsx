@@ -12,7 +12,7 @@ const NET = ["U", "L", "F", "R", "B", "D"] as const;
 
 function CubeSwatch() {
   return (
-    <span className="tile-swatch tile-swatch-net" aria-hidden="true">
+    <span className="row-mark row-mark-net" aria-hidden="true">
       {NET.map((face) => (
         <i key={face} data-face={face} style={{ background: FACE_HEX[face] }} />
       ))}
@@ -22,7 +22,7 @@ function CubeSwatch() {
 
 function DnaSwatch() {
   return (
-    <span className="tile-swatch tile-swatch-dna" aria-hidden="true">
+    <span className="row-mark row-mark-dna" aria-hidden="true">
       <i />
       <i />
       <i />
@@ -31,44 +31,48 @@ function DnaSwatch() {
   );
 }
 
-export default function GameIndex({ ids }: { ids?: string[] }) {
+export default function GameIndex({
+  ids,
+  size = "board",
+}: {
+  ids?: string[];
+  size?: "board" | "compact";
+}) {
   const list = (ids ?? GAMES.map((game) => game.id))
     .map((id) => GAMES.find((game) => game.id === id))
     .filter((game): game is (typeof GAMES)[number] => Boolean(game));
 
   if (list.length === 0) return null;
 
-  const featured = list.find((game) => game.featured) ?? list[0];
-  const rest = list.filter((game) => game.id !== featured.id);
-  const featureCopy = COPY[featured.id];
-
   return (
-    <div className={`game-index${rest.length === 0 ? " game-index-solo" : ""}`}>
-      <Link href={`/games/${featured.id}`} className="game-feature">
-        <span className="game-kicker">{featureCopy.kicker}</span>
-        <span className="game-feature-main">
-          <h2 className="game-feature-title">{featureCopy.short}</h2>
-          <p className="game-feature-line">{featureCopy.line}</p>
-          <span className="game-go">打开</span>
-        </span>
-      </Link>
-
-      {rest.length > 0 && (
-        <div className="game-side">
-          {rest.map((game) => {
-            const copy = COPY[game.id];
-            return (
-              <Link key={game.id} href={`/games/${game.id}`} className="game-item">
-                {game.id === "rubiks-cube" ? <CubeSwatch /> : <DnaSwatch />}
-                <span className="game-item-copy">
-                  <h2>{copy.short}</h2>
-                  <p>{copy.line}</p>
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-      )}
+    <div className={`game-board game-board-${size}`}>
+      {list.map((game, index) => {
+        const copy = COPY[game.id];
+        return (
+          <Link
+            key={game.id}
+            href={`/games/${game.id}`}
+            className={`game-row${index === 0 && size === "board" ? " game-row-main" : ""}`}
+            data-game={game.id}
+          >
+            <span className="game-row-lead">
+              {game.id === "rubiks-cube" ? (
+                <CubeSwatch />
+              ) : game.id === "dna-helix" ? (
+                <DnaSwatch />
+              ) : null}
+              <span className="game-row-copy">
+                <h2>{copy.short}</h2>
+                <p>{copy.line}</p>
+              </span>
+            </span>
+            <span className="game-row-meta">
+              <span>{copy.kicker}</span>
+              <span className="game-row-go">打开</span>
+            </span>
+          </Link>
+        );
+      })}
     </div>
   );
 }

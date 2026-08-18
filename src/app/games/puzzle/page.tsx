@@ -15,7 +15,7 @@ export default function PuzzleGames() {
         <h1 className="about-title">益智</h1>
         <p className="about-lede">当前能玩的益智作品。</p>
       </header>
-      <GameIndex ids={games.map((game) => game.id)} />
+      <GameIndex ids={games.map((game) => game.id)} size="compact" />
     </div>
   );
 }

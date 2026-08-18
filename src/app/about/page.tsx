@@ -38,7 +38,7 @@ export default function AboutPage() {
 
       <section className="about-games">
         <h2>当前能玩</h2>
-        <GameIndex ids={GAMES.map((game) => game.id)} />
+        <GameIndex ids={GAMES.map((game) => game.id)} size="compact" />
       </section>
     </div>
   );
